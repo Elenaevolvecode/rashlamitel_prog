@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Расхламитель ПК</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ONBOARDING 1 -->
+  <div class="screen" id="screen-onboarding1">
+    <div class="onboarding1-robot-wrap">
+      <img src="assets/robot_welcome.png" alt="" class="onboarding1-robot">
+      <div class="onboarding1-gradient"></div>
+    </div>
+    <div class="onboarding1-bottom">
+      <h1 class="onboarding1-title">Привет! Я — Расхламитель</h1>
+      <p class="onboarding1-text">Чищу компьютеры от мусора.<br>Одна кнопка — и готово. Ничего важного не трону.</p>
+      <button class="btn-primary btn-wide" onclick="showScreen('screen-onboarding2')">Как это работает? →</button>
+    </div>
+  </div>
+
+  <!-- ONBOARDING 2 -->
+  <div class="screen hidden" id="screen-onboarding2">
+    <div class="onboarding2-header">
+      <img src="assets/robot_smile.png" alt="" class="onboarding2-robot">
+      <h2 class="onboarding2-title">Как я работаю</h2>
+    </div>
+    <div class="onboarding2-scrollable">
+      <div class="info-card"><h3 class="info-card-title green">✓ Что я уберу</h3><p>Мусор из браузеров — кусочки сайтов</p><p>Остатки от программ — как крошки после обеда</p><p>Корзина — удалённые файлы всё ещё там</p><p>Старые установщики — файл лежит без дела</p></div>
+      <div class="info-card"><h3 class="info-card-title amber">⊘ Не трону. Никогда.</h3><p>Ваши фото, документы и видео</p><p>Пароли и закладки</p><p>Программы — без вашего разрешения</p><p>Системные файлы Windows</p></div>
+      <div class="mascot-bubble-row"><img src="assets/robot_explains.png" alt="" class="bubble-robot"><div class="speech-bubble">Я работаю как настоящий уборщик — выношу только мусор, а ценные вещи не трогаю</div></div>
+    </div>
+    <div class="bottom-btn-area"><button class="btn-primary btn-wide" onclick="completeOnboarding()">Понятно, поехали! →</button></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="screen hidden" id="screen-main">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Расхламитель</span></div><button class="header-settings" onclick="showScreen('screen-settings')">⚙</button></div>
+    <div class="main-content">
+      <div class="main-top-row">
+        <img src="assets/robot_smile.png" alt="" class="main-robot-img">
+        <div class="main-top-right">
+          <div class="main-speech-bubble" id="main-mascot-text">Сканирую…</div>
+          <div class="trash-indicator"><div class="trash-bar"><div class="trash-bar-fill" id="trash-bar-fill"></div></div><span class="trash-amount" id="trash-amount">0 ГБ</span></div>
+        </div>
+      </div>
+      <div class="main-btn-area">
+        <div class="scan-details hidden" id="scan-details">
+          <div class="scan-detail-row"><span>Мусор из интернета</span><span id="scan-d-internet">—</span></div>
+          <div class="scan-detail-row"><span>Остатки от программ</span><span id="scan-d-programs">—</span></div>
+          <div class="scan-detail-row"><span>Корзина</span><span id="scan-d-recycle">—</span></div>
+          <div class="scan-detail-row"><span>Старые установщики</span><span id="scan-d-downloads">—</span></div>
+          <div class="scan-detail-row"><span>Прочее</span><span id="scan-d-other">—</span></div>
+        </div>
+        <button class="clean-button" onclick="startCleaning()"><div class="clean-button-inner"><div class="clean-button-icon">🗑</div><div class="clean-button-text">Почистить</div><div class="clean-button-sub">компьютер</div></div><div class="clean-button-ring"></div></button>
+        <p class="main-hint">Нажми кнопку — остальное сделает Расхламитель</p>
+        <a class="main-link" href="#" onclick="showScreen('screen-onboarding2');return false">Как я работаю?</a>
+      </div>
+    </div>
+    <nav class="navbar">
+      <button class="nav-tab active" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
+      <button class="nav-tab" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
+      <button class="nav-tab" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+    </nav>
+  </div>
+
+  <!-- CLEANING -->
+  <div class="screen hidden" id="screen-cleaning">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Очистка</span></div></div>
+    <div class="cleaning-content">
+      <img src="assets/robot_works_close.png" alt="" class="cleaning-robot">
+      <h2 class="cleaning-step-text" id="cleaning-step-text">Убираю мусор из интернета…</h2>
+      <p class="cleaning-step-sub" id="cleaning-step-sub">Chrome, Яндекс Браузер, Edge, Firefox</p>
+      <div class="progress-bar-wrap"><div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div></div>
+      <div class="cleaning-stats"><span id="cleaning-freed">Освобождено: 0.0 ГБ</span><span id="cleaning-percent">0%</span></div>
+      <div class="cleaning-steps">
+        <div class="step-item active" data-step="0"><span class="step-check">●</span> Убираю мусор из интернета..</div>
+        <div class="step-item" data-step="1"><span class="step-check">○</span> Удаляю остатки от программ..</div>
+        <div class="step-item" data-step="2"><span class="step-check">○</span> Очищаю корзину..</div>
+        <div class="step-item" data-step="3"><span class="step-check">○</span> Проверяю скачанные файлы..</div>
+        <div class="step-item" data-step="4"><span class="step-check">○</span> Почти готово!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen hidden" id="screen-result">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Результат</span></div></div>
+    <div class="result-content">
+      <div class="result-top">
+        <img src="assets/robot_smile.png" alt="" class="result-robot">
+        <div class="result-info"><h2 class="result-title">ГОТОВО!</h2><p class="result-subtitle">Ваш компьютер стал чище</p><div class="result-amount"><span id="result-gb">0</span> <small>ГБ</small></div><p class="result-amount-label">освобождено</p></div>
+      </div>
+      <div class="result-scrollable">
+        <div class="result-summary">
+          <div class="summary-row"><span>Мусор из интернета</span><span id="res-internet">0</span></div>
+          <div class="summary-row"><span>Остатки от программ</span><span id="res-programs">0</span></div>
+          <div class="summary-row"><span>Корзина</span><span id="res-trash">0</span></div>
+          <div class="summary-row"><span>Скачанные файлы</span><span id="res-downloads">0</span></div>
+          <div class="summary-row"><span>Прочее</span><span id="res-other">0</span></div>
+        </div>
+        <div class="mascot-bubble-row result-bubble"><img src="assets/robot_smile.png" alt="" class="bubble-robot small"><div class="speech-bubble">Очистка завершена. Ваш компьютер стал чище</div></div>
+      </div>
+    </div>
+    <div class="bottom-btn-area"><button class="btn-primary btn-wide" onclick="finishCleaning()">Отлично!</button></div>
+  </div>
+
+  <!-- AUTOSTART -->
+  <div class="screen hidden" id="screen-autostart">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Расхламитель</span></div><button class="header-settings" onclick="showScreen('screen-settings')">⚙</button></div>
+    <div class="autostart-content">
+      <h2 class="section-title">Программы при включении</h2>
+      <p class="section-subtitle" id="autostart-subtitle"></p>
+      <button class="btn-outline btn-wide btn-disable-all" onclick="disableAllUnnecessary()">⚡ Отключить всё ненужное</button>
+      <div class="autostart-list" id="autostart-list"></div>
+    </div>
+    <nav class="navbar">
+      <button class="nav-tab" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
+      <button class="nav-tab active" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
+      <button class="nav-tab" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+    </nav>
+  </div>
+
+  <!-- PROGRAMS — навигация по категориям -->
+  <div class="screen hidden" id="screen-programs">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Расхламитель</span></div><button class="header-settings" onclick="showScreen('screen-settings')">⚙</button></div>
+    <div class="programs-content">
+      <h2 class="section-title">Программы</h2>
+      <p class="section-subtitle" id="programs-subtitle">Загрузка…</p>
+      <div id="programs-menu">
+        <div class="settings-card clickable" id="prog-menu-junk" onclick="showProgScreen('junk')" style="display:none">
+          <div class="settings-row"><span>⚠ Можно удалить</span><span class="prog-menu-count" id="prog-count-junk"></span><span class="settings-arrow">→</span></div>
+        </div>
+        <div class="settings-card clickable" id="prog-menu-other" onclick="showProgScreen('other')">
+          <div class="settings-row"><span>📦 Ваши программы</span><span class="prog-menu-count" id="prog-count-other"></span><span class="settings-arrow">→</span></div>
+        </div>
+        <div class="settings-card clickable" id="prog-menu-system" onclick="showProgScreen('system')">
+          <div class="settings-row"><span>🔒 Системные</span><span class="prog-menu-count" id="prog-count-system"></span><span class="settings-arrow">→</span></div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <button class="nav-tab" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
+      <button class="nav-tab" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
+      <button class="nav-tab active" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+    </nav>
+  </div>
+
+  <!-- PROGRAMS SUB: Можно удалить -->
+  <div class="screen hidden" id="screen-prog-junk">
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Можно удалить</h2><p class="section-subtitle">Эти программы бесполезны или даже вредны. Удаление безопасно.</p></div>
+    <div class="sub-list-scroll"><div class="programs-list" id="prog-list-junk"></div></div>
+  </div>
+
+  <!-- PROGRAMS SUB: Ваши программы -->
+  <div class="screen hidden" id="screen-prog-other">
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Ваши программы</h2><p class="section-subtitle">Эти программы установлены на вашем компьютере. Если вы уверенный пользователь ПК и желаете одну из них удалить — <a href="#" onclick="showProgScreen('other-delete');return false" style="color:var(--accent-teal)">перейдите на следующую вкладку</a>. Если вы неопытный пользователь — обратитесь за помощью к специалисту.</p></div>
+    <div class="sub-list-scroll"><div class="programs-list" id="prog-list-other"></div></div>
+  </div>
+
+  <!-- PROGRAMS SUB: Ваши программы — удаление (для опытных) -->
+  <div class="screen hidden" id="screen-prog-other-delete">
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Удаление программ</h2><p class="section-subtitle">Внимание! Удаляйте программы только если вы точно знаете, что они вам не нужны. Некоторые программы могут быть опорой для других.</p></div>
+    <div class="sub-list-scroll"><div class="programs-list" id="prog-list-other-delete"></div></div>
+  </div>
+
+  <!-- PROGRAMS SUB: Системные -->
+  <div class="screen hidden" id="screen-prog-system">
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Системные программы</h2><p class="section-subtitle">Эти программы нужны для работы компьютера. Их нельзя удалять.</p></div>
+    <div class="sub-list-scroll"><div class="programs-list" id="prog-list-system"></div></div>
+  </div>
+
+  <!-- DONATE -->
+  <div class="overlay hidden" id="donate-overlay" onclick="closeDonate()"></div>
+  <div class="bottom-sheet hidden" id="screen-donate">
+    <div class="bottom-sheet-handle"></div>
+    <h2 class="donate-title">Угостить разработчика ☕</h2>
+    <div class="qr-card"><div class="qr-placeholder" id="qr-code"></div></div>
+    <p class="donate-hint">Наведи камеру на QR или нажми кнопку</p>
+    <button class="btn-outline-teal btn-wide" onclick="handleDonate()">Угостить</button>
+    <button class="btn-text" onclick="closeDonate()">Закрыть</button>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen hidden" id="screen-settings">
+    <div class="settings-content"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="settings-title">Настройки</h2>
+      <div class="settings-card"><div class="settings-row"><span>Язык интерфейса</span><span class="settings-value">Русский ▾</span></div></div>
+      <div class="settings-card clickable" onclick="showScreen('screen-about')"><div class="settings-row"><span>О программе</span><span class="settings-arrow">→</span></div></div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="screen hidden" id="screen-about">
+    <div class="about-content"><button class="back-link" onclick="goBack()">← Назад</button>
+      <div class="about-hero"><img src="assets/robot_confident.png" alt="" class="about-robot"><h2 class="about-name">Расхламитель ПК</h2><p class="about-version">Версия 1.0.0 (сборка 2026.03)</p></div>
+      <div class="about-desc-card"><p>Программа для очистки компьютера от мусорных файлов. Работает локально, не отправляет данные в интернет.</p></div>
+      <div class="about-section"><h4 class="about-section-title">ДОКУМЕНТЫ</h4>
+        <div class="about-link-card"><span class="about-link-icon">📄</span><span>Пользовательское соглашение</span><span class="settings-arrow">→</span></div>
+        <div class="about-link-card"><span class="about-link-icon">🔒</span><span>Политика конфиденциальности</span><span class="settings-arrow">→</span></div>
+        <div class="about-link-card"><span class="about-link-icon">📋</span><span>Лицензионное соглашение</span><span class="settings-arrow">→</span></div>
+      </div>
+      <div class="about-section"><h4 class="about-section-title">РАЗРАБОТЧИК</h4>
+        <div class="about-link-card"><span class="about-link-icon">✉</span><div class="about-link-col"><span>hello@evolvecode.ru</span><small>Написать нам</small></div><span class="settings-arrow">→</span></div>
+        <div class="about-link-card"><span class="about-link-icon">🌐</span><div class="about-link-col"><span>evolvecode.ru</span><small>Сайт разработчика</small></div><span class="settings-arrow">→</span></div>
+        <div class="about-link-card"><span class="about-link-icon">🏠</span><div class="about-link-col"><span>rashlamitel.ru</span><small>Сайт программы</small></div><span class="settings-arrow">→</span></div>
+      </div>
+      <div class="about-section"><h4 class="about-section-title">ТЕХНИЧЕСКАЯ ИНФОРМАЦИЯ</h4>
+        <div class="about-tech-card"><div class="tech-row"><span>Версия</span><span>1.0.0</span></div><div class="tech-row"><span>Сборка</span><span>2026.03.17</span></div><div class="tech-row"><span>Платформа</span><span>Windows 10/11</span></div><div class="tech-row"><span>Размер</span><span>12.4 МБ</span></div></div>
+      </div>
+      <p class="about-footer">© 2026 EvolveCode · Сделано с ❤ в России</p>
+    </div>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modal-overlay hidden" id="browser-dialog-overlay"><div class="modal-card"><h3 class="modal-title" id="browser-dialog-title">Браузер Chrome сейчас открыт</h3><p class="modal-text">Чтобы почистить мусор из браузера, его нужно закрыть. Все вкладки сохранятся.</p><button class="btn-primary btn-wide" onclick="closeBrowserAndClean()">Закрыть браузер и почистить</button><button class="btn-text" onclick="skipBrowser()">Пропустить</button></div></div>
+  <div class="modal-overlay hidden" id="delete-dialog-overlay"><div class="modal-card"><h3 class="modal-title" id="delete-dialog-title"></h3><p class="modal-text" id="delete-dialog-text"></p><button class="btn-danger btn-wide" id="delete-confirm-btn">Да, удалить</button><button class="btn-text" onclick="closeDeleteDialog()">Отмена</button></div></div>
+  <div class="toast hidden" id="toast"></div>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

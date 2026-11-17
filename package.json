@@ -1,0 +1,23 @@
+{
+  "name": "rashlamitel-pc",
+  "version": "1.0.0",
+  "description": "Расхламитель ПК — программа для очистки компьютера от мусорных файлов",
+  "main": "main.js",
+  "author": "EvolveCode <hello@evolvecode.ru>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "build": {
+    "appId": "ru.rashlamitel.pc",
+    "productName": "Расхламитель ПК",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    }
+  }
+}
