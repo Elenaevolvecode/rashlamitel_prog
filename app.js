@@ -123,6 +123,11 @@ const DEMO_ITEMS = [
     after: 'Старые фото и видео в чатах при открытии загрузятся заново.' }),
   demoItem('temp', 'windows', '📁', 'Временные файлы', 0.9),
   demoItem('syscache', 'windows', '🧾', 'Отчёты об ошибках и кэш Windows', 0.1),
+  demoItem('deep', 'windows', '🛠', 'Глубокая очистка Windows', 0, { defaultOn: false, sizeUnknown: true,
+    what: 'Остатки старых обновлений Windows, отчёты о сбоях системы, кэш миниатюр и папка Windows.old — прошлая версия Windows после большого обновления, обычно это 10–30 ГБ.',
+    why: 'Чистит встроенное средство Windows «Очистка диска» — то же самое делают вручную компьютерные мастера. Windows спросит разрешение — нажмите «Да». Сколько освободится, станет известно после.',
+    warn: 'После этого нельзя будет откатиться на прошлую версию Windows. Очистка может занять 5–15 минут, появится и само закроется окно «Очистка диска».',
+    after: 'Windows работает как прежде, просто станет больше места.' }),
   demoItem('downloads', 'user', '📥', 'Старые установщики', 0.3, {
     list: [{ name: 'ChromeSetup.exe', size: 1.3e6 }, { name: 'Zoom_installer.exe', size: 9e7 }, { name: 'office2019.iso', size: 2.2e8 }] }),
   demoItem('recycle', 'user', '🗑', 'Корзина', 0.6, { defaultOn: false, why: '',
@@ -131,9 +136,25 @@ const DEMO_ITEMS = [
 ];
 function demoScan(items = DEMO_ITEMS) { return { items, total: items.reduce((s, i) => s + i.size, 0) }; }
 
+// Пункты, которые никогда не запоминаем: необратимые или долгие — галочка каждый раз снята
+const NEVER_REMEMBER = ['recycle', 'deep'];
+/** Отмечен ли пункт при открытии: обычный выбор или то, что пользователь выбрал в прошлый раз. */
+function isChosen(i) {
+  const saved = (state.settings.cleanChoices || {})[i.id];
+  if (NEVER_REMEMBER.includes(i.id) || typeof saved !== 'boolean') return i.defaultOn;
+  return saved;
+}
+function rememberChoice(id, on) {
+  if (NEVER_REMEMBER.includes(id)) return;
+  const item = scanItems().find((i) => i.id === id);
+  const choices = { ...(state.settings.cleanChoices || {}) };
+  if (item && on === item.defaultOn) delete choices[id]; else choices[id] = on;
+  setSetting('cleanChoices', choices);
+}
+
 function scanItems() { return (state.scanResults && state.scanResults.items) || []; }
 /** Сколько уберу «по умолчанию» — ровно столько покажет и экран предпросмотра при открытии. */
-function defaultBytes() { return scanItems().filter((i) => i.defaultOn).reduce((s, i) => s + i.size, 0); }
+function defaultBytes() { return scanItems().filter(isChosen).reduce((s, i) => s + i.size, 0); }
 
 async function scanTrash() {
   if (state.scanning) return;
@@ -144,11 +165,11 @@ async function scanTrash() {
     if (isElectron) state.scanResults = await api.scan();
     else { await sleep(500); state.scanResults = demoScan(); }
   } finally { state.scanning = false; }
-  state.selected = new Set(scanItems().filter((i) => i.defaultOn).map((i) => i.id));
+  state.selected = new Set(scanItems().filter(isChosen).map((i) => i.id));
 
   // Короткая сводка по группам; подробности — на экране предпросмотра
   const rows = Object.entries(GROUPS).map(([g, title]) => {
-    const items = scanItems().filter((i) => i.group === g);
+    const items = scanItems().filter((i) => i.group === g && !i.sizeUnknown);
     if (!items.length) return '';
     const size = items.reduce((s, i) => s + i.size, 0);
     const names = items.map((i) => i.title).join(', ');
@@ -189,7 +210,7 @@ function previewCard(i) {
     ? `<ul class="preview-files">${i.list.map((f) => `<li>${escHtml(f.name)} — ${formatBytes(f.size)}</li>`).join('')}</ul>` : '';
   return `<div class="preview-card${on ? '' : ' off'}" id="pc-${escHtml(i.id)}">
     <label class="preview-row"><input type="checkbox" ${on ? 'checked' : ''} onchange="togglePreviewItem('${escHtml(i.id)}', this.checked)">
-      <span class="preview-icon">${escHtml(i.icon)}</span><span class="preview-name">${escHtml(i.title)}</span><span class="preview-size">${formatBytes(i.size)}</span></label>
+      <span class="preview-icon">${escHtml(i.icon)}</span><span class="preview-name">${escHtml(i.title)}</span><span class="preview-size">${i.sizeUnknown ? 'узнаю после' : formatBytes(i.size)}</span></label>
     <button class="preview-more" onclick="togglePreviewDetails('${escHtml(i.id)}', this)">Что это?</button>
     <div class="preview-details hidden" id="pd-${escHtml(i.id)}">
       <p><b>Что это:</b> ${escHtml(i.what)}</p>
@@ -210,6 +231,7 @@ function renderPreview() {
 
 function togglePreviewItem(id, on) {
   if (on) state.selected.add(id); else state.selected.delete(id);
+  rememberChoice(id, on);
   const card = $('pc-' + id); if (card) card.classList.toggle('off', !on);
   updatePreviewTotal();
 }
@@ -222,7 +244,7 @@ function togglePreviewDetails(id, btn) {
 
 function updatePreviewTotal() {
   const bytes = scanItems().filter((i) => state.selected.has(i.id)).reduce((s, i) => s + i.size, 0);
-  $('preview-total').textContent = formatBytes(bytes);
+  $('preview-total').textContent = formatBytes(bytes) + (state.selected.has('deep') ? ' + глубокая очистка Windows' : '');
   const btn = $('preview-go');
   btn.disabled = state.selected.size === 0;
   btn.textContent = state.settings.dryRun ? 'Проверить отмеченное' : 'Удалить отмеченное';
@@ -286,7 +308,9 @@ function updateCleanUI(d) {
   // Процент — по шагам: честнее, чем по гигабайтам, которые заранее точно не известны
   const pct = Math.min(100, Math.round(((d.step + (d.done ? 1 : 0.5)) / d.total) * 100));
   $('cleaning-step-text').textContent = (state.settings.dryRun ? 'Смотрю: ' : 'Убираю: ') + d.title;
-  $('cleaning-step-sub').textContent = `Шаг ${d.step + 1} из ${d.total}`;
+  $('cleaning-step-sub').textContent = d.id === 'deep' && !state.settings.dryRun
+    ? 'Работает «Очистка диска» Windows — это может занять до 15 минут. Окно появится и закроется само.'
+    : `Шаг ${d.step + 1} из ${d.total}`;
   $('progress-fill').style.width = pct + '%';
   $('cleaning-freed').textContent = (state.settings.dryRun ? 'Можно убрать: ' : 'Убрано: ') + formatBytes(d.freed);
   $('cleaning-percent').textContent = pct + '%';
@@ -306,7 +330,8 @@ async function runDemo(items, skip) {
     updateCleanUI({ step: n, total: items.length, title: i.title, freed: res.totalFreed + res.movedToTrash });
     await sleep(700 + Math.random() * 500);
     const r = { id: i.id, title: i.title, icon: i.icon, freed: 0, moved: 0, skipped: skip.includes(i.id) };
-    if (!r.skipped) { if (i.id === 'downloads') r.moved = i.size; else r.freed = i.size; }
+    if (i.id === 'deep') { if (res.dryRun) r.label = 'в режиме проверки не запускаю'; else r.freed = 2.4 * GB; }
+    else if (!r.skipped) { if (i.id === 'downloads') r.moved = i.size; else r.freed = i.size; }
     res.items.push(r); res.totalFreed += r.freed; res.movedToTrash += r.moved;
     updateCleanUI({ step: n, total: items.length, title: i.title, freed: res.totalFreed + res.movedToTrash, done: true });
   }
@@ -322,16 +347,18 @@ function showRes(r) {
   $('result-gb').textContent = bytesToGB(r.totalFreed + moved);
 
   $('result-summary').innerHTML = r.items.map((i) => {
-    const value = i.skipped ? 'не трогал' : i.moved ? `${formatBytes(i.moved)} → в Корзину` : formatBytes(i.freed);
+    const value = i.label ? escHtml(i.label) : i.skipped ? 'не трогал' : i.moved ? `${formatBytes(i.moved)} → в Корзину` : formatBytes(i.freed);
     return `<div class="summary-row"><span>${escHtml(i.icon || '')} ${escHtml(i.title)}</span><span>${value}</span></div>`;
   }).join('');
 
   const notes = [];
-  const skipped = r.items.filter((i) => i.skipped).map((i) => i.title);
+  const skipped = r.items.filter((i) => i.skipped && i.id !== 'deep').map((i) => i.title);
+  const deepRefused = r.items.some((i) => i.id === 'deep' && i.skipped);
   if (dry) notes.push('Это был режим проверки — я ничего не удалил. Выключить его можно в настройках ⚙.');
   else {
     if (r.failedFiles > 0) notes.push('Часть файлов сейчас заняты программами — их я пропустил, это нормально.');
     if (skipped.length) notes.push(`${skipped.join(', ')} не трогал — ${skipped.length > 1 ? 'они были открыты' : 'программа была открыта'}.`);
+    if (deepRefused) notes.push('Глубокую очистку не запускал — Windows не дала разрешения (в окне «Разрешить изменения?» нужно нажать «Да»).');
     if (moved > 0) notes.push(`Старые установщики (${formatBytes(moved)}) перенёс в Корзину — если что, их можно вернуть. Место освободится, когда очистите Корзину.`);
     if (!notes.length) notes.push('Очистка завершена. Ваш компьютер стал чище!');
   }

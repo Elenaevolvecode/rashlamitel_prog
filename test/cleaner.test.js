@@ -119,3 +119,38 @@ test('открытую программу можно пропустить', asyn
 test('окончания: 1 файл, 2 файла, 5 файлов, 11 файлов, 21 файл', () => {
   assert.deepStrictEqual([1, 2, 5, 11, 21, 104].map(cleaner.filesWord), ['1 файл', '2 файла', '5 файлов', '11 файлов', '21 файл', '104 файла']);
 });
+
+test('глубокая очистка: пункт есть, галочка снята, размер неизвестен до запуска', async () => {
+  const { home, env } = fakeHome();
+  const r = await cleaner.scan({ env, home, deep: true });
+  const d = r.items.find((i) => i.id === 'deep');
+  assert.ok(d);
+  assert.strictEqual(d.defaultOn, false);
+  assert.strictEqual(d.sizeUnknown, true);
+  assert.ok(d.warn.includes('5–15 минут'));
+  assert.strictEqual(cleaner.forUi(r).items.find((i) => i.id === 'deep').sizeUnknown, true);
+});
+
+test('глубокая очистка: в режиме проверки не запускается', async () => {
+  const { home, env } = fakeHome();
+  const r = await cleaner.scan({ env, home, deep: true });
+  let ran = false;
+  const res = await cleaner.clean(r, { dryRun: true, selected: ['deep'], deepClean: async () => { ran = true; return { freed: 1 }; } });
+  assert.strictEqual(ran, false);
+  assert.strictEqual(res.items[0].label, 'в режиме проверки не запускаю');
+});
+
+test('глубокая очистка: освобождённое место и отказ в окне Windows', async () => {
+  const { home, env } = fakeHome();
+  const r = await cleaner.scan({ env, home, deep: true });
+  const ok = await cleaner.clean(r, { selected: ['deep'], deepClean: async () => ({ freed: 5e9, cancelled: false }) });
+  assert.strictEqual(ok.totalFreed, 5e9);
+  const no = await cleaner.clean(r, { selected: ['deep'], deepClean: async () => ({ freed: 0, cancelled: true }) });
+  assert.strictEqual(no.items[0].skipped, true);
+  assert.strictEqual(no.items[0].label, 'Windows не разрешила');
+});
+
+test('глубокая очистка не трогает файлы для «Вернуть компьютер в исходное состояние»', () => {
+  assert.ok(!cleaner.DEEP_HANDLERS.some((h) => /ESD/i.test(h)));
+  assert.ok(cleaner.DEEP_HANDLERS.includes('Update Cleanup'));
+});

@@ -12,6 +12,9 @@ const DEFAULTS = {
   dryRun: true,
   cleanCount: 0,
   history: [], // { date, freed, dryRun }
+  // Выбор пользователя на экране «Вот что я нашёл»: { id: true/false }, если отличается от обычного.
+  // Корзину и глубокую очистку не запоминаем — у них галочка всегда снята.
+  cleanChoices: {},
 };
 
 function createStore(dir) {

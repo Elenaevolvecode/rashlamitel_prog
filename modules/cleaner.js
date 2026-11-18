@@ -193,13 +193,68 @@ async function closeProcesses(names) {
   return runningProcesses(names);
 }
 
+// --- Глубокая очистка Windows (встроенная «Очистка диска», нужны права администратора) ---
+// Разделы «Очистки диска», которые включаем. Не берём «Windows ESD installation files» —
+// они нужны для функции «Вернуть компьютер в исходное состояние».
+const DEEP_HANDLERS = [
+  'Update Cleanup', 'Previous Installations', 'Delivery Optimization Files',
+  'Windows Error Reporting Files', 'Temporary Setup Files', 'Windows Upgrade Log Files',
+  'System error memory dump files', 'System error minidump files', 'Thumbnail Cache',
+  'Downloaded Program Files', 'Setup Log Files',
+];
+const DEEP_SAGE = 777; // номер набора настроек для cleanmgr /sagerun
+
+const DEEP_SCRIPT = `
+$base = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches'
+$flag = 'StateFlags' + ([string]$A.sage).PadLeft(4, '0')
+foreach ($h in $A.handlers) {
+  $k = Join-Path $base $h
+  if (Test-Path -LiteralPath $k) { Set-ItemProperty -LiteralPath $k -Name $flag -Value 2 -Type DWord -Force }
+}
+Start-Process -FilePath 'cleanmgr.exe' -ArgumentList ('/sagerun:' + $A.sage) -Wait
+foreach ($h in $A.handlers) {
+  $k = Join-Path $base $h
+  if (Test-Path -LiteralPath $k) { Remove-ItemProperty -LiteralPath $k -Name $flag -ErrorAction SilentlyContinue }
+}
+`;
+
+function systemDrive(env = process.env) { return (env.SystemDrive || 'C:').replace(/\\$/, ''); }
+
+async function freeBytes(drive = systemDrive()) {
+  try { const st = await fs.promises.statfs(drive + '\\'); return Number(st.bavail) * Number(st.bsize); } catch { return null; }
+}
+
+/** Запустить «Очистку диска» с нашим набором. Возвращает { freed, cancelled }. */
+async function deepClean() {
+  const before = await freeBytes();
+  const r = await ps.runElevated(DEEP_SCRIPT, { handlers: DEEP_HANDLERS, sage: DEEP_SAGE }, { timeout: 60 * 60000 });
+  if (r.cancelled) return { freed: 0, cancelled: true };
+  const after = await freeBytes();
+  return { freed: before != null && after != null ? Math.max(0, after - before) : 0, cancelled: false };
+}
+
+function deepItem(env = process.env) {
+  const windowsOld = fs.existsSync(path.join(systemDrive(env) + '\\', 'Windows.old'));
+  return {
+    id: 'deep', group: 'windows', kind: 'deep', icon: '🛠', title: 'Глубокая очистка Windows',
+    defaultOn: false, size: 0, files: 0, sizeUnknown: true,
+    what: 'Остатки старых обновлений Windows, отчёты о сбоях системы, кэш миниатюр' +
+      (windowsOld ? ' и папка Windows.old — прошлая версия Windows после большого обновления, обычно это 10–30 ГБ.' : '.'),
+    why: 'Чистит встроенное средство Windows «Очистка диска» — то же самое делают вручную компьютерные мастера. ' +
+      'Windows спросит разрешение — нажмите «Да». Сколько освободится, станет известно после.',
+    warn: (windowsOld ? 'После этого нельзя будет откатиться на прошлую версию Windows. ' : '') +
+      'Очистка может занять 5–15 минут, появится и само закроется окно «Очистка диска».',
+    after: 'Windows работает как прежде, просто станет больше места.',
+  };
+}
+
 // --- Сканирование ---
 /**
  * Возвращает { items: [...], total }.
  * У каждого найденного пункта: id, group, icon, title, what, why, after, warn, defaultOn, size, files,
  * а также служебные поля (paths, list), которые в интерфейс не отдаём.
  */
-async function scan({ env, home, now = Date.now() } = {}) {
+async function scan({ env, home, now = Date.now(), deep = process.platform === 'win32' } = {}) {
   const items = [];
   for (const def of getItems(env, home)) {
     const it = { ...def, size: 0, files: 0 };
@@ -218,6 +273,7 @@ async function scan({ env, home, now = Date.now() } = {}) {
     }
     if (it.files > 0) items.push(it);
   }
+  if (deep) items.push(deepItem(env));
   return { items, total: items.reduce((s, i) => s + i.size, 0) };
 }
 
@@ -227,7 +283,7 @@ function forUi(scanResult) {
     total: scanResult.total,
     items: scanResult.items.map((i) => ({
       id: i.id, group: i.group, icon: i.icon, title: i.title, what: i.what, why: i.why || '', after: i.after || '',
-      warn: i.warn || '', defaultOn: i.defaultOn, size: i.size, files: i.files, process: i.process || '',
+      warn: i.warn || '', defaultOn: i.defaultOn, size: i.size, files: i.files, process: i.process || '', sizeUnknown: !!i.sizeUnknown,
       list: i.list ? i.list.slice(0, 20).map((f) => ({ name: f.name, size: f.size })) : undefined,
     })),
   };
@@ -250,7 +306,7 @@ async function clean(scanResult, opts = {}, onProgress = () => {}) {
     const it = todo[n];
     const base = { step: n, total: todo.length, id: it.id, title: it.title };
     onProgress({ ...base, freed: result.totalFreed + result.movedToTrash });
-    const r = { id: it.id, title: it.title, icon: it.icon, freed: 0, moved: 0, skipped: false };
+    const r = { id: it.id, title: it.title, icon: it.icon, freed: 0, moved: 0, skipped: false, label: '' };
 
     if (skip.has(it.id)) {
       r.skipped = true;
@@ -264,6 +320,13 @@ async function clean(scanResult, opts = {}, onProgress = () => {}) {
         if (dryRun) { r.moved += f.size; continue; }
         if (!opts.trash) continue;
         try { await opts.trash(f.path); r.moved += f.size; } catch { result.failedFiles += 1; }
+      }
+    } else if (it.kind === 'deep') {
+      if (dryRun) r.label = 'в режиме проверки не запускаю';
+      else {
+        const d = await (opts.deepClean || deepClean)();
+        if (d.cancelled) { r.skipped = true; r.label = 'Windows не разрешила'; }
+        else r.freed = d.freed;
       }
     } else if (it.kind === 'recycle') {
       if (dryRun) r.freed = it.size;
@@ -282,4 +345,4 @@ async function clean(scanResult, opts = {}, onProgress = () => {}) {
   return result;
 }
 
-module.exports = { scan, forUi, clean, getItems, scanDownloads, runningProcesses, closeProcesses, filesWord };
+module.exports = { DEEP_HANDLERS, deepItem, scan, forUi, clean, getItems, scanDownloads, runningProcesses, closeProcesses, filesWord };
