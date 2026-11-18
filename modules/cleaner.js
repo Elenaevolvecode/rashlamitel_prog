@@ -92,7 +92,7 @@ function getItems(env = process.env, home = os.homedir()) {
       after: 'Магазин Steam первый раз откроется чуть медленнее.' },
 
     // --- Windows ---
-    { id: 'temp', group: 'windows', icon: '🗂', title: 'Временные файлы', minAgeMs: DAY,
+    { id: 'temp', group: 'windows', icon: '📁', title: 'Временные файлы', minAgeMs: DAY,
       paths: [env.TEMP || path.join(local, 'Temp'), path.join(windir, 'Temp')],
       what: 'Файлы, которые программы создают на время работы и забывают за собой убрать — как крошки после обеда.',
       why: 'Беру только файлы старше суток — с ними уже никто не работает. Занятые файлы пропускаю.',

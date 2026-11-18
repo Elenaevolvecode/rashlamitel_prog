@@ -51,8 +51,8 @@
       </div>
       <div class="main-btn-area">
         <div class="scan-details hidden" id="scan-details"></div>
-        <button class="clean-button" onclick="openPreview()"><div class="clean-button-inner"><div class="clean-button-icon">🗑</div><div class="clean-button-text">Почистить</div><div class="clean-button-sub">компьютер</div></div><div class="clean-button-ring"></div></button>
-        <p class="main-hint">Нажмите — я покажу, что нашёл, и уберу то, что вы отметите</p>
+        <button class="clean-button" onclick="openPreview()"><div class="clean-button-inner"><div class="clean-button-icon">🔍</div><div class="clean-button-text">Посмотреть</div><div class="clean-button-sub">что нашлось</div></div><div class="clean-button-ring"></div></button>
+        <p class="main-hint">Сначала покажу, что нашёл. Удалю только то, что вы отметите</p>
         <a class="main-link" href="#" onclick="showScreen('screen-onboarding2');return false">Как я работаю?</a>
       </div>
     </div>
@@ -65,11 +65,11 @@
 
   <!-- PREVIEW: что уберу -->
   <div class="screen hidden" id="screen-preview">
-    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Вот что я нашёл</h2><p class="section-subtitle">Отмеченное уберу. Нажмите «Что это?», чтобы узнать подробнее про каждый пункт.</p></div>
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Вот что я нашёл</h2><p class="section-subtitle">Удалю только то, что отмечено галочкой. Нажмите «Что это?», чтобы узнать подробнее про каждый пункт.</p></div>
     <div class="sub-list-scroll"><div class="preview-list" id="preview-list"></div></div>
     <div class="bottom-btn-area preview-bottom">
       <div class="preview-total"><span>Выбрано:</span> <b id="preview-total">0 Б</b></div>
-      <button class="btn-primary btn-wide" id="preview-go" onclick="startCleaning()">Убрать отмеченное</button>
+      <button class="btn-primary btn-wide" id="preview-go" onclick="startCleaning()">Удалить отмеченное</button>
     </div>
   </div>
 

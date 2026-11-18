@@ -121,7 +121,7 @@ const DEMO_ITEMS = [
     what: 'Картинки, видео и стикеры из чатов, которые вы уже смотрели. Telegram хранит копии, чтобы показывать их быстрее.',
     why: 'Всё хранится на серверах Telegram — переписка и файлы не пропадут. Файлы, которые вы сами скачали в «Загрузки», не трогаю.',
     after: 'Старые фото и видео в чатах при открытии загрузятся заново.' }),
-  demoItem('temp', 'windows', '🗂', 'Временные файлы', 0.9),
+  demoItem('temp', 'windows', '📁', 'Временные файлы', 0.9),
   demoItem('syscache', 'windows', '🧾', 'Отчёты об ошибках и кэш Windows', 0.1),
   demoItem('downloads', 'user', '📥', 'Старые установщики', 0.3, {
     list: [{ name: 'ChromeSetup.exe', size: 1.3e6 }, { name: 'Zoom_installer.exe', size: 9e7 }, { name: 'office2019.iso', size: 2.2e8 }] }),
@@ -225,7 +225,7 @@ function updatePreviewTotal() {
   $('preview-total').textContent = formatBytes(bytes);
   const btn = $('preview-go');
   btn.disabled = state.selected.size === 0;
-  btn.textContent = state.settings.dryRun ? 'Проверить отмеченное' : 'Убрать отмеченное';
+  btn.textContent = state.settings.dryRun ? 'Проверить отмеченное' : 'Удалить отмеченное';
 }
 
 // ===== Очистка =====
