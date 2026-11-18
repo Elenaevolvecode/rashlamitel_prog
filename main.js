@@ -119,7 +119,7 @@ ipcMain.handle('programs:uninstall', (e, id) => programs.uninstallProgram(String
 
 // --- Ссылки из «О программе» ---
 ipcMain.handle('app:openExternal', (e, url) => {
-  if (typeof url === 'string' && /^(https:\/\/(evolvecode|rashlamitel)\.ru|mailto:hello@evolvecode\.ru)/.test(url)) shell.openExternal(url);
+  if (typeof url === 'string' && /^(https:\/\/evolvecode\.ru(\/|$)|mailto:hello@evolvecode\.ru$)/.test(url)) shell.openExternal(url);
 });
 ipcMain.handle('app:version', () => app.getVersion());
 
