@@ -1,20 +1,18 @@
 /**
- * Автозагрузка — РЕАЛЬНОЕ отключение через StartupApproved
- * Тот же механизм, что использует Диспетчер задач Windows.
- * Программы НЕ могут вернуть себя обратно после отключения.
+ * Автозагрузка — отключение через StartupApproved,
+ * тем же механизмом, что использует Диспетчер задач Windows.
+ * Запись в Run не удаляется, ставится флаг «отключено», поэтому всё обратимо.
  */
-const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const ps = require('./ps');
 
-function ps(cmd) {
-  return new Promise((resolve) => {
-    exec(
-      `powershell.exe -NoProfile -Command "chcp 65001 >$null; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${cmd.replace(/"/g, '\\"')}"`,
-      { maxBuffer: 5242880, encoding: 'utf8' },
-      (err, stdout) => resolve(stdout ? stdout.trim() : '')
-    );
-  });
+const APPROVED_BASE = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved';
+const SUBKEYS = ['Run', 'Run32', 'StartupFolder'];
+
+function approvedRegPath(hive, sub) {
+  return `${hive}:\\${APPROVED_BASE}\\${sub}`;
 }
 
 function loadDatabase() {
@@ -23,125 +21,76 @@ function loadDatabase() {
 }
 
 /**
- * Читаем автозагрузку через Get-CimInstance — тот же источник что у Диспетчера задач
+ * По записи Win32_StartupCommand определить, где лежит её флаг в StartupApproved.
+ * Возвращает { hive, sub, valueName } или null, если запись нельзя переключать.
  */
-async function getAutostartEntries() {
-  try {
-    const result = await ps(
-      `Get-CimInstance Win32_StartupCommand -EA SilentlyContinue | ` +
-      `ForEach-Object { $_.Name + '|||' + $_.Command + '|||' + $_.Location + '|||' + $_.User }`
-    );
-    if (!result) return [];
-    return result.split('\n').filter(l => l.includes('|||')).map(l => {
-      const [name, command, location, user] = l.split('|||');
-      return { name: name.trim(), command: (command||'').trim(), location: (location||'').trim(), user: (user||'').trim() };
-    });
-  } catch { return []; }
-}
-
-/**
- * Проверяем статус через StartupApproved
- */
-async function isDisabledInStartupApproved(name, location) {
-  const isHKLM = location && location.includes('HKLM');
-  const approvedPath = isHKLM
-    ? 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
-    : 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run';
-
-  try {
-    const result = await ps(
-      `$v = (Get-ItemProperty -Path '${approvedPath}' -Name '${name}' -EA SilentlyContinue).'${name}'; ` +
-      `if ($v -ne $null) { if ($v[0] -ge 3) { 'DISABLED' } else { 'ENABLED' } } else { 'NOKEY' }`
-    );
-    return result === 'DISABLED';
-  } catch { return false; }
-}
-
-/**
- * ОТКЛЮЧИТЬ через StartupApproved — как Диспетчер задач
- * Не удаляет запись из Run — ставит флаг «отключено»
- */
-async function disableAutostart(name, location) {
-  const isHKLM = location && location.includes('HKLM');
-  const approvedPath = isHKLM
-    ? 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
-    : 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run';
-
-  // Для HKCU — напрямую
-  if (!isHKLM) {
-    try {
-      const result = await ps(
-        `$path = '${approvedPath}'; ` +
-        `$ts = [BitConverter]::GetBytes([DateTime]::Now.ToFileTime()); ` +
-        `$bytes = @([byte]3, [byte]0, [byte]0, [byte]0, [byte]0, [byte]0, [byte]0, [byte]0) + $ts[0..3]; ` +
-        `$fullBytes = New-Object byte[] 12; ` +
-        `$fullBytes[0] = 3; ` +
-        `[Array]::Copy($ts, 0, $fullBytes, 4, [Math]::Min($ts.Length, 8)); ` +
-        `if (!(Test-Path $path)) { New-Item -Path $path -Force | Out-Null }; ` +
-        `Set-ItemProperty -Path $path -Name '${name}' -Value ([byte[]]$fullBytes) -Type Binary -Force; ` +
-        `'OK'`
-      );
-      return result.includes('OK');
-    } catch { return false; }
+function approvedKeyFor(entry) {
+  const loc = (entry.location || '').toUpperCase();
+  if (loc.includes('RUNONCE')) return null;
+  if (loc === 'STARTUP' || loc === 'COMMON STARTUP') {
+    const cmd = (entry.command || '').trim();
+    const valueName = /\.(lnk|exe|bat|cmd|url)$/i.test(cmd) && !cmd.includes('\\') ? cmd : `${entry.name}.lnk`;
+    return { hive: loc === 'STARTUP' ? 'HKCU' : 'HKLM', sub: 'StartupFolder', valueName };
   }
-
-  // Для HKLM — с повышенными правами
-  try {
-    const result = await ps(
-      `$script = @' 
-$path = '${approvedPath}'
-$ts = [BitConverter]::GetBytes([DateTime]::Now.ToFileTime())
-$fullBytes = New-Object byte[] 12
-$fullBytes[0] = 3
-[Array]::Copy($ts, 0, $fullBytes, 4, [Math]::Min($ts.Length, 8))
-if (!(Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
-Set-ItemProperty -Path $path -Name '${name}' -Value ([byte[]]$fullBytes) -Type Binary -Force
-'@
-$script | Out-File "$env:TEMP\\disable_startup.ps1" -Encoding UTF8
-Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\disable_startup.ps1"' -EA SilentlyContinue
-'OK'`
-    );
-    return result.includes('OK');
-  } catch { return false; }
+  const sub = loc.includes('WOW6432NODE') ? 'Run32' : 'Run';
+  if (loc.startsWith('HKLM')) return { hive: 'HKLM', sub, valueName: entry.name };
+  if (loc.startsWith('HKU') || loc.startsWith('HKCU')) return { hive: 'HKCU', sub, valueName: entry.name };
+  return null;
 }
 
-/**
- * ВКЛЮЧИТЬ обратно — убираем флаг отключения
- */
-async function enableAutostart(name, location) {
-  const isHKLM = location && location.includes('HKLM');
-  const approvedPath = isHKLM
-    ? 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
-    : 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run';
+/** Запись относится к текущему пользователю или ко всем? Чужие записи не показываем. */
+function isForCurrentUser(entry, username = os.userInfo().username) {
+  const u = (entry.user || '').toLowerCase();
+  if (!u) return true;
+  const me = username.toLowerCase();
+  if (u === me || u.endsWith('\\' + me)) return true;
+  // Общие записи (HKLM, общая папка «Автозагрузка»)
+  return ['public', 'all users', 'nt authority\\system', '.default'].some((x) => u.includes(x));
+}
 
-  if (!isHKLM) {
-    try {
-      const result = await ps(
-        `$path = '${approvedPath}'; ` +
-        `$fullBytes = New-Object byte[] 12; ` +
-        `$fullBytes[0] = 2; ` +
-        `Set-ItemProperty -Path $path -Name '${name}' -Value ([byte[]]$fullBytes) -Type Binary -Force; ` +
-        `'OK'`
-      );
-      return result.includes('OK');
-    } catch { return false; }
+/** Флаг в StartupApproved: нечётный первый байт = отключено (02/06 — вкл, 03/07 — откл). */
+function isDisabledFlag(b0) {
+  return typeof b0 === 'number' && (b0 & 1) === 1;
+}
+
+const READ_SCRIPT = `
+$entries = @(Get-CimInstance Win32_StartupCommand -ErrorAction SilentlyContinue | ForEach-Object {
+  [pscustomobject]@{ name = $_.Name; command = $_.Command; location = $_.Location; user = $_.User }
+})
+$approved = @{}
+foreach ($hive in 'HKCU','HKLM') {
+  foreach ($sub in $A.subkeys) {
+    $vals = @{}
+    $p = $hive + ':\\' + $A.base + '\\' + $sub
+    if (Test-Path $p) {
+      $item = Get-Item $p
+      foreach ($n in $item.GetValueNames()) {
+        $v = $item.GetValue($n)
+        if ($v -is [byte[]] -and $v.Length -gt 0) { $vals[$n] = [int]$v[0] }
+      }
+    }
+    $approved[$hive + '\\' + $sub] = $vals
   }
-
-  try {
-    const result = await ps(
-      `$script = @'
-$path = '${approvedPath}'
-$fullBytes = New-Object byte[] 12
-$fullBytes[0] = 2
-Set-ItemProperty -Path $path -Name '${name}' -Value ([byte[]]$fullBytes) -Type Binary -Force
-'@
-$script | Out-File "$env:TEMP\\enable_startup.ps1" -Encoding UTF8
-Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\enable_startup.ps1"' -EA SilentlyContinue
-'OK'`
-    );
-    return result.includes('OK');
-  } catch { return false; }
 }
+@{ entries = $entries; approved = $approved } | ConvertTo-Json -Depth 5 -Compress
+`;
+
+const WRITE_SCRIPT = `
+$p = $A.path
+if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
+$b = New-Object byte[] 12
+$b[0] = [byte]$A.flag
+if ($A.flag -eq 3) {
+  $ts = [BitConverter]::GetBytes([DateTime]::Now.ToFileTime())
+  [Array]::Copy($ts, 0, $b, 4, 8)
+}
+Set-ItemProperty -Path $p -Name $A.name -Value $b -Type Binary -Force
+`;
+
+const READ_FLAG_SCRIPT = `
+$v = (Get-ItemProperty -Path $A.path -Name $A.name -ErrorAction SilentlyContinue).($A.name)
+if ($v -is [byte[]] -and $v.Length -gt 0) { [int]$v[0] } else { -1 }
+`;
 
 function matchWithDatabase(entry, database) {
   const nl = entry.name.toLowerCase(), cl = (entry.command || '').toLowerCase();
@@ -152,42 +101,77 @@ function matchWithDatabase(entry, database) {
   return null;
 }
 
-const iconMap = {kaspersky:'🛡',drweb:'🛡',windows_defender:'🛡',nvidia_display:'🖥',amd_radeon:'🖥',intel_graphics:'🖥',realtek_audio:'🔊',synaptics_touchpad:'🖱',yandex_browser:'🌐',chrome:'🌐',edge:'🌐',opera_gx_gaming:'🌐',telegram:'💬',whatsapp:'💬',viber:'💬',discord:'🎧',skype:'📞',zoom:'📹',teams:'💼',steam:'🎮',epic_games:'🎮',onedrive:'☁',yandex_disk:'☁',google_drive:'☁',dropbox:'☁',spotify:'🎵',itunes:'🎵'};
+const iconMap = { kaspersky: '🛡', drweb: '🛡', windows_defender: '🛡', nvidia_display: '🖥', amd_radeon: '🖥', intel_graphics: '🖥', realtek_audio: '🔊', synaptics_touchpad: '🖱', yandex_browser: '🌐', chrome: '🌐', edge: '🌐', opera_gx_gaming: '🌐', telegram: '💬', whatsapp: '💬', viber: '💬', discord: '🎧', skype: '📞', zoom: '📹', teams: '💼', steam: '🎮', epic_games: '🎮', onedrive: '☁', yandex_disk: '☁', google_drive: '☁', dropbox: '☁', spotify: '🎵', itunes: '🎵' };
+const LABELS = { green: 'Нужна', yellow: 'Можно откл.', red: 'Лучше откл.' };
 
-async function getAutostart() {
-  const database = loadDatabase();
-  const entries = [], seen = new Set();
-  const sources = await getAutostartEntries();
+/**
+ * Собрать список для интерфейса из сырых данных PowerShell (вынесено отдельно для тестов).
+ */
+function buildList(raw, database, username) {
+  const entries = Array.isArray(raw.entries) ? raw.entries : raw.entries ? [raw.entries] : [];
+  const approved = raw.approved || {};
+  const list = [], seen = new Set();
+  for (const e of entries) {
+    if (!e || !e.name) continue;
+    if (!isForCurrentUser(e, username)) continue;
+    const key = approvedKeyFor(e);
+    if (!key) continue;
+    const id = `${key.hive}\\${key.sub}\\${key.valueName}`.toLowerCase();
+    if (seen.has(id)) continue;
+    seen.add(id);
 
-  for (const src of sources) {
-    const key = src.name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const disabled = await isDisabledInStartupApproved(src.name, src.location);
-    const db = matchWithDatabase(src, database);
-
-    if (db) {
-      entries.push({
-        id: db.id, name: db.names[0], registryName: src.name, location: src.location,
-        category: db.category,
-        label: db.category === 'green' ? 'Нужна' : db.category === 'yellow' ? 'Можно откл.' : 'Лучше откл.',
-        description: db.description, vendor: db.vendor,
-        icon: iconMap[db.id] || (db.category === 'green' ? '🛡' : db.category === 'red' ? '⚠' : '❓'),
-        enabled: !disabled,
-      });
-    } else {
-      entries.push({
-        id: 'unknown_' + key, name: src.name, registryName: src.name, location: src.location,
-        category: 'yellow', label: 'Можно откл.',
-        description: 'Запускается при включении', vendor: '', icon: '❓',
-        enabled: !disabled,
-      });
-    }
+    const flag = (approved[`${key.hive}\\${key.sub}`] || {})[key.valueName];
+    const db = matchWithDatabase(e, database);
+    const category = db ? db.category : 'yellow';
+    list.push({
+      id,
+      name: db ? db.names[0] : e.name,
+      category,
+      label: LABELS[category],
+      description: db ? db.description : 'Запускается при включении компьютера',
+      vendor: db ? db.vendor : '',
+      icon: (db && iconMap[db.id]) || (category === 'green' ? '🛡' : category === 'red' ? '⚠' : '❓'),
+      enabled: !isDisabledFlag(flag),
+      needsAdmin: key.hive === 'HKLM',
+      _key: key,
+    });
   }
-
-  entries.sort((a, b) => ({ green: 0, yellow: 1, red: 2 })[a.category] - ({ green: 0, yellow: 1, red: 2 })[b.category]);
-  return entries;
+  list.sort((a, b) => ({ green: 0, yellow: 1, red: 2 })[a.category] - ({ green: 0, yellow: 1, red: 2 })[b.category]);
+  return list;
 }
 
-module.exports = { getAutostart, disableAutostart, enableAutostart };
+let lastList = [];
+
+async function getAutostart() {
+  if (process.platform !== 'win32') return [];
+  const raw = await ps.runJson(READ_SCRIPT, { base: APPROVED_BASE, subkeys: SUBKEYS }, { entries: [], approved: {} });
+  lastList = buildList(raw, loadDatabase());
+  return lastList.map(({ _key, ...rest }) => rest);
+}
+
+/**
+ * Включить/выключить по id из последнего списка.
+ * Возвращает { ok, cancelled } — ok только если флаг реально изменился в реестре.
+ */
+async function setEnabled(id, enabled) {
+  const item = lastList.find((x) => x.id === id);
+  if (!item) return { ok: false };
+  const { hive, sub, valueName } = item._key;
+  const args = { path: approvedRegPath(hive, sub), name: valueName, flag: enabled ? 2 : 3 };
+
+  let cancelled = false;
+  if (hive === 'HKLM') {
+    const r = await ps.runElevated(WRITE_SCRIPT, args);
+    cancelled = r.cancelled;
+  } else {
+    await ps.run(WRITE_SCRIPT, args);
+  }
+  // Проверяем, что флаг действительно записался (а не «ОК» на всякий случай)
+  const check = await ps.run(READ_FLAG_SCRIPT, { path: args.path, name: valueName });
+  const b0 = parseInt(check.stdout, 10);
+  const ok = b0 >= 0 && isDisabledFlag(b0) === !enabled;
+  if (ok) item.enabled = enabled;
+  return { ok, cancelled };
+}
+
+module.exports = { getAutostart, setEnabled, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };

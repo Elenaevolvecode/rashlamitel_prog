@@ -1,23 +1,44 @@
 {
   "name": "rashlamitel-pc",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "description": "Расхламитель ПК — программа для очистки компьютера от мусорных файлов",
   "main": "main.js",
   "author": "EvolveCode <hello@evolvecode.ru>",
   "license": "MIT",
+  "private": true,
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "test": "node --test \"test/*.test.js\"",
+    "build:win": "electron-builder --win --x64 --publish never"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "ru.rashlamitel.pc",
     "productName": "Расхламитель ПК",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "app.js",
+      "styles.css",
+      "autostart_database.json",
+      "modules/**",
+      "assets/**"
+    ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "artifactName": "Rashlamitel-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Расхламитель ПК"
     }
   }
 }

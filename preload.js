@@ -1,14 +1,26 @@
 const { contextBridge, ipcRenderer } = require('electron');
+
 contextBridge.exposeInMainWorld('rashlamitel', {
+  // Настройки
+  getSettings: () => ipcRenderer.invoke('store:getAll'),
+  setSetting: (key, value) => ipcRenderer.invoke('store:set', key, value),
+  // Очистка
   scan: () => ipcRenderer.invoke('cleaner:scan'),
-  clean: () => ipcRenderer.invoke('cleaner:clean'),
-  onCleanProgress: (cb) => ipcRenderer.on('cleaner:progress', (e, d) => cb(d)),
-  onCleanDone: (cb) => ipcRenderer.on('cleaner:done', (e, d) => cb(d)),
-  isBrowserRunning: (n) => ipcRenderer.invoke('cleaner:isBrowserRunning', n),
-  closeBrowser: (n) => ipcRenderer.invoke('cleaner:closeBrowser', n),
+  clean: (opts) => ipcRenderer.invoke('cleaner:clean', opts),
+  // Подписка одна: при повторном вызове старый обработчик снимается
+  onCleanProgress: (cb) => {
+    ipcRenderer.removeAllListeners('cleaner:progress');
+    ipcRenderer.on('cleaner:progress', (e, d) => cb(d));
+  },
+  getRunningBrowsers: () => ipcRenderer.invoke('cleaner:runningBrowsers'),
+  closeBrowsers: (ids) => ipcRenderer.invoke('cleaner:closeBrowsers', ids),
+  // Автозагрузка
   getAutostart: () => ipcRenderer.invoke('autostart:get'),
-  disableAutostart: (name, location) => ipcRenderer.invoke('autostart:disable', name, location),
-  enableAutostart: (name, location) => ipcRenderer.invoke('autostart:enable', name, location),
+  setAutostart: (id, enabled) => ipcRenderer.invoke('autostart:set', id, enabled),
+  // Программы
   getPrograms: () => ipcRenderer.invoke('programs:get'),
-  uninstallProgram: (uninstStr, quietStr) => ipcRenderer.invoke('programs:uninstall', uninstStr, quietStr),
+  uninstallProgram: (id) => ipcRenderer.invoke('programs:uninstall', id),
+  // Прочее
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+  getVersion: () => ipcRenderer.invoke('app:version'),
 });

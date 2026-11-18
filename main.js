@@ -1,58 +1,107 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const cleaner = require('./modules/cleaner');
 const autostart = require('./modules/autostart');
 const programs = require('./modules/programs');
+const { createStore } = require('./modules/store');
 
-let mainWindow, lastScanResults = null;
+let mainWindow, store, lastScan = null, cleaning = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 600, height: 690,
+    width: 600, height: 700, useContentSize: true,
     resizable: false, maximizable: false, fullscreenable: false,
     title: 'Расхламитель ПК',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false, contextIsolation: true,
+      nodeIntegration: false, contextIsolation: true, sandbox: true,
     },
     backgroundColor: '#FFFFFF',
   });
   mainWindow.loadFile('index.html');
   mainWindow.setMenuBarVisibility(false);
+  // Ссылки (сайт, почта) открываем в браузере, а не внутри программы
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https:|mailto:)/.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
   if (process.argv.includes('--dev')) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
-// Cleaner
+function send(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data);
+}
+
+// --- Настройки ---
+ipcMain.handle('store:getAll', () => store.getAll());
+ipcMain.handle('store:set', (e, key, value) => store.set(key, value));
+
+// --- Очистка ---
 ipcMain.handle('cleaner:scan', async () => {
-  try { lastScanResults = await cleaner.scan(); return lastScanResults; }
-  catch (e) { console.error(e); return { total:0, internet:{size:0}, programs:{size:0}, recycle:{size:0}, downloads:{size:0}, other:{size:0} }; }
+  try { lastScan = await cleaner.scan(); }
+  catch (e) { console.error(e); lastScan = null; }
+  if (!lastScan) return { total: 0, internet: { size: 0 }, programs: { size: 0 }, recycle: { size: 0, files: 0 }, downloads: { size: 0 }, other: { size: 0 } };
+  // В интерфейс отдаём только цифры, без списков путей
+  const brief = (c) => ({ size: c.size, files: c.files });
+  return { total: lastScan.total, internet: brief(lastScan.internet), programs: brief(lastScan.programs),
+    recycle: brief(lastScan.recycle), downloads: brief(lastScan.downloads), other: brief(lastScan.other) };
 });
-ipcMain.handle('cleaner:clean', async () => {
-  if (!lastScanResults) lastScanResults = await cleaner.scan();
+
+ipcMain.handle('cleaner:runningBrowsers', () => cleaner.getRunningBrowsers());
+ipcMain.handle('cleaner:closeBrowsers', (e, ids) => cleaner.closeBrowsers(Array.isArray(ids) ? ids : []));
+
+ipcMain.handle('cleaner:clean', async (e, opts = {}) => {
+  if (cleaning) return null;
+  cleaning = true;
   try {
-    const r = await cleaner.clean(lastScanResults, (p) => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cleaner:progress', p);
-    });
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cleaner:done', r);
-    lastScanResults = null; return r;
-  } catch (e) { console.error(e); return { totalFreed: 0 }; }
+    if (!lastScan) lastScan = await cleaner.scan();
+    const dryRun = store.get('dryRun');
+    const result = await cleaner.clean(lastScan, {
+      dryRun,
+      emptyRecycle: !!opts.emptyRecycle,
+      skipBrowsers: Array.isArray(opts.skipBrowsers) ? opts.skipBrowsers : [],
+      trash: (p) => shell.trashItem(p),
+    }, (p) => send('cleaner:progress', p));
+    store.addClean(result.totalFreed, dryRun);
+    lastScan = null;
+    return result;
+  } catch (err) {
+    console.error(err);
+    return { totalFreed: 0, movedToTrash: 0, error: true };
+  } finally {
+    cleaning = false;
+  }
 });
-ipcMain.handle('cleaner:isBrowserRunning', (e, n) => cleaner.isBrowserRunning(n));
-ipcMain.handle('cleaner:closeBrowser', (e, n) => cleaner.closeBrowser(n));
 
-// Autostart — name + location
+// --- Автозагрузка ---
 ipcMain.handle('autostart:get', async () => {
-  try { return await autostart.getAutostart(); } catch(e) { console.error(e); return []; }
+  try { return await autostart.getAutostart(); } catch (e) { console.error(e); return []; }
 });
-ipcMain.handle('autostart:disable', (e, name, location) => autostart.disableAutostart(name, location));
-ipcMain.handle('autostart:enable', (e, name, location) => autostart.enableAutostart(name, location));
+ipcMain.handle('autostart:set', (e, id, enabled) => autostart.setEnabled(String(id), !!enabled));
 
-// Programs
+// --- Программы ---
 ipcMain.handle('programs:get', async () => {
-  try { return await programs.getInstalledPrograms(); } catch(e) { console.error(e); return []; }
+  try { return await programs.getInstalledPrograms(); } catch (e) { console.error(e); return []; }
 });
-ipcMain.handle('programs:uninstall', (e, uninstStr, quietStr) => programs.uninstallProgram(uninstStr, quietStr));
+ipcMain.handle('programs:uninstall', (e, id) => programs.uninstallProgram(String(id)));
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => app.quit());
+// --- Ссылки из «О программе» ---
+ipcMain.handle('app:openExternal', (e, url) => {
+  if (typeof url === 'string' && /^(https:\/\/(evolvecode|rashlamitel)\.ru|mailto:hello@evolvecode\.ru)/.test(url)) shell.openExternal(url);
+});
+ipcMain.handle('app:version', () => app.getVersion());
+
+// Не даём запустить вторую копию программы
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
+  });
+  app.whenReady().then(() => {
+    store = createStore(app.getPath('userData'));
+    createWindow();
+  });
+  app.on('window-all-closed', () => app.quit());
+}

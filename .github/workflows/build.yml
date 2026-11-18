@@ -1,0 +1,33 @@
+name: Тесты и сборка Windows
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Установка зависимостей
+        run: npm ci
+
+      - name: Тесты
+        run: npm test
+
+      - name: Сборка установщика
+        run: npm run build:win
+
+      - name: Установщик — скачать здесь
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rashlamitel-Setup
+          path: dist/*.exe
+          retention-days: 14

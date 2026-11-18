@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Расхламитель ПК</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -41,6 +41,7 @@
   <div class="screen hidden" id="screen-main">
     <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Расхламитель</span></div><button class="header-settings" onclick="showScreen('screen-settings')">⚙</button></div>
     <div class="main-content">
+      <div class="dryrun-banner hidden" id="dryrun-banner">🔍 Режим проверки: покажу, что удалил бы, но ничего не удаляю. <a href="#" onclick="showScreen('screen-settings');return false">Изменить</a></div>
       <div class="main-top-row">
         <img src="assets/robot_smile.png" alt="" class="main-robot-img">
         <div class="main-top-right">
@@ -93,17 +94,17 @@
     <div class="result-content">
       <div class="result-top">
         <img src="assets/robot_smile.png" alt="" class="result-robot">
-        <div class="result-info"><h2 class="result-title">ГОТОВО!</h2><p class="result-subtitle">Ваш компьютер стал чище</p><div class="result-amount"><span id="result-gb">0</span> <small>ГБ</small></div><p class="result-amount-label">освобождено</p></div>
+        <div class="result-info"><h2 class="result-title" id="result-title">ГОТОВО!</h2><p class="result-subtitle" id="result-subtitle">Ваш компьютер стал чище</p><div class="result-amount"><span id="result-gb">0</span> <small>ГБ</small></div><p class="result-amount-label" id="result-amount-label">освобождено</p></div>
       </div>
       <div class="result-scrollable">
         <div class="result-summary">
           <div class="summary-row"><span>Мусор из интернета</span><span id="res-internet">0</span></div>
           <div class="summary-row"><span>Остатки от программ</span><span id="res-programs">0</span></div>
           <div class="summary-row"><span>Корзина</span><span id="res-trash">0</span></div>
-          <div class="summary-row"><span>Скачанные файлы</span><span id="res-downloads">0</span></div>
+          <div class="summary-row"><span>Старые установщики → в Корзину</span><span id="res-downloads">0</span></div>
           <div class="summary-row"><span>Прочее</span><span id="res-other">0</span></div>
         </div>
-        <div class="mascot-bubble-row result-bubble"><img src="assets/robot_smile.png" alt="" class="bubble-robot small"><div class="speech-bubble">Очистка завершена. Ваш компьютер стал чище</div></div>
+        <div class="mascot-bubble-row result-bubble"><img src="assets/robot_smile.png" alt="" class="bubble-robot small"><div class="speech-bubble" id="result-note">Очистка завершена. Ваш компьютер стал чище</div></div>
       </div>
     </div>
     <div class="bottom-btn-area"><button class="btn-primary btn-wide" onclick="finishCleaning()">Отлично!</button></div>
@@ -152,7 +153,7 @@
 
   <!-- PROGRAMS SUB: Можно удалить -->
   <div class="screen hidden" id="screen-prog-junk">
-    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Можно удалить</h2><p class="section-subtitle">Эти программы бесполезны или даже вредны. Удаление безопасно.</p></div>
+    <div class="sub-header"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="section-title">Можно удалить</h2><p class="section-subtitle">Эти программы обычно не нужны. Почему — написано под каждой. Удаление запускает штатный деинсталлятор программы.</p></div>
     <div class="sub-list-scroll"><div class="programs-list" id="prog-list-junk"></div></div>
   </div>
 
@@ -174,21 +175,10 @@
     <div class="sub-list-scroll"><div class="programs-list" id="prog-list-system"></div></div>
   </div>
 
-  <!-- DONATE -->
-  <div class="overlay hidden" id="donate-overlay" onclick="closeDonate()"></div>
-  <div class="bottom-sheet hidden" id="screen-donate">
-    <div class="bottom-sheet-handle"></div>
-    <h2 class="donate-title">Угостить разработчика ☕</h2>
-    <div class="qr-card"><div class="qr-placeholder" id="qr-code"></div></div>
-    <p class="donate-hint">Наведи камеру на QR или нажми кнопку</p>
-    <button class="btn-outline-teal btn-wide" onclick="handleDonate()">Угостить</button>
-    <button class="btn-text" onclick="closeDonate()">Закрыть</button>
-  </div>
-
   <!-- SETTINGS -->
   <div class="screen hidden" id="screen-settings">
     <div class="settings-content"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="settings-title">Настройки</h2>
-      <div class="settings-card"><div class="settings-row"><span>Язык интерфейса</span><span class="settings-value">Русский ▾</span></div></div>
+      <div class="settings-card"><div class="settings-row"><div class="settings-col"><span>Режим проверки</span><small>Показываю, что удалил бы, но ничего не удаляю. Удобно, чтобы сначала посмотреть.</small></div><label class="toggle"><input type="checkbox" id="setting-dryrun" onchange="toggleDryRun(this)"><span class="toggle-slider"></span></label></div></div>
       <div class="settings-card clickable" onclick="showScreen('screen-about')"><div class="settings-row"><span>О программе</span><span class="settings-arrow">→</span></div></div>
     </div>
   </div>
@@ -196,27 +186,22 @@
   <!-- ABOUT -->
   <div class="screen hidden" id="screen-about">
     <div class="about-content"><button class="back-link" onclick="goBack()">← Назад</button>
-      <div class="about-hero"><img src="assets/robot_confident.png" alt="" class="about-robot"><h2 class="about-name">Расхламитель ПК</h2><p class="about-version">Версия 1.0.0 (сборка 2026.03)</p></div>
+      <div class="about-hero"><img src="assets/robot_confident.png" alt="" class="about-robot"><h2 class="about-name">Расхламитель ПК</h2><p class="about-version">Версия <span class="app-version">1.0.0</span></p></div>
       <div class="about-desc-card"><p>Программа для очистки компьютера от мусорных файлов. Работает локально, не отправляет данные в интернет.</p></div>
-      <div class="about-section"><h4 class="about-section-title">ДОКУМЕНТЫ</h4>
-        <div class="about-link-card"><span class="about-link-icon">📄</span><span>Пользовательское соглашение</span><span class="settings-arrow">→</span></div>
-        <div class="about-link-card"><span class="about-link-icon">🔒</span><span>Политика конфиденциальности</span><span class="settings-arrow">→</span></div>
-        <div class="about-link-card"><span class="about-link-icon">📋</span><span>Лицензионное соглашение</span><span class="settings-arrow">→</span></div>
-      </div>
       <div class="about-section"><h4 class="about-section-title">РАЗРАБОТЧИК</h4>
-        <div class="about-link-card"><span class="about-link-icon">✉</span><div class="about-link-col"><span>hello@evolvecode.ru</span><small>Написать нам</small></div><span class="settings-arrow">→</span></div>
-        <div class="about-link-card"><span class="about-link-icon">🌐</span><div class="about-link-col"><span>evolvecode.ru</span><small>Сайт разработчика</small></div><span class="settings-arrow">→</span></div>
-        <div class="about-link-card"><span class="about-link-icon">🏠</span><div class="about-link-col"><span>rashlamitel.ru</span><small>Сайт программы</small></div><span class="settings-arrow">→</span></div>
+        <div class="about-link-card clickable" onclick="openLink('mailto:hello@evolvecode.ru')"><span class="about-link-icon">✉</span><div class="about-link-col"><span>hello@evolvecode.ru</span><small>Написать нам</small></div><span class="settings-arrow">→</span></div>
+        <div class="about-link-card clickable" onclick="openLink('https://evolvecode.ru')"><span class="about-link-icon">🌐</span><div class="about-link-col"><span>evolvecode.ru</span><small>Сайт разработчика</small></div><span class="settings-arrow">→</span></div>
+        <div class="about-link-card clickable" onclick="openLink('https://rashlamitel.ru')"><span class="about-link-icon">🏠</span><div class="about-link-col"><span>rashlamitel.ru</span><small>Сайт программы</small></div><span class="settings-arrow">→</span></div>
       </div>
       <div class="about-section"><h4 class="about-section-title">ТЕХНИЧЕСКАЯ ИНФОРМАЦИЯ</h4>
-        <div class="about-tech-card"><div class="tech-row"><span>Версия</span><span>1.0.0</span></div><div class="tech-row"><span>Сборка</span><span>2026.03.17</span></div><div class="tech-row"><span>Платформа</span><span>Windows 10/11</span></div><div class="tech-row"><span>Размер</span><span>12.4 МБ</span></div></div>
+        <div class="about-tech-card"><div class="tech-row"><span>Версия</span><span class="app-version">1.0.0</span></div><div class="tech-row"><span>Платформа</span><span>Windows 10/11</span></div><div class="tech-row"><span>Работа</span><span>Только на этом компьютере</span></div></div>
       </div>
       <p class="about-footer">© 2026 EvolveCode · Сделано с ❤ в России</p>
     </div>
   </div>
 
   <!-- MODALS -->
-  <div class="modal-overlay hidden" id="browser-dialog-overlay"><div class="modal-card"><h3 class="modal-title" id="browser-dialog-title">Браузер Chrome сейчас открыт</h3><p class="modal-text">Чтобы почистить мусор из браузера, его нужно закрыть. Все вкладки сохранятся.</p><button class="btn-primary btn-wide" onclick="closeBrowserAndClean()">Закрыть браузер и почистить</button><button class="btn-text" onclick="skipBrowser()">Пропустить</button></div></div>
+  <div class="modal-overlay hidden" id="confirm-dialog-overlay"><div class="modal-card"><h3 class="modal-title" id="confirm-dialog-title"></h3><p class="modal-text" id="confirm-dialog-text"></p><button class="btn-primary btn-wide" id="confirm-dialog-yes"></button><button class="btn-text" id="confirm-dialog-no"></button></div></div>
   <div class="modal-overlay hidden" id="delete-dialog-overlay"><div class="modal-card"><h3 class="modal-title" id="delete-dialog-title"></h3><p class="modal-text" id="delete-dialog-text"></p><button class="btn-danger btn-wide" id="delete-confirm-btn">Да, удалить</button><button class="btn-text" onclick="closeDeleteDialog()">Отмена</button></div></div>
   <div class="toast hidden" id="toast"></div>
 
