@@ -22,6 +22,13 @@ function formatBytes(b) {
   return b + ' Б';
 }
 function bytesToGB(b) { return (b / GB).toFixed(1); }
+/** Окончание по числу: plural(1,'файл','файла','файлов') → 'файл', 3 → 'файла', 5 → 'файлов' */
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
 function escHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
@@ -285,7 +292,10 @@ function renderAutostart() {
   if (!d) return;
   const canOff = d.filter((p) => p.category !== 'green' && p.enabled).length;
   $('autostart-subtitle').textContent = d.length
-    ? `${d.length} программ запускаются при включении компьютера. ${canOff ? canOff + ' из них можно отключить — компьютер будет включаться быстрее.' : 'Лишнего не нашёл.'}`
+    ? `${d.length} ${plural(d.length, 'программа запускается', 'программы запускаются', 'программ запускаются')} при включении компьютера. ` +
+      (!canOff ? 'Лишнего не нашёл.'
+        : d.length === 1 ? 'Её можно отключить — компьютер будет включаться быстрее.'
+        : `${canOff} из них можно отключить — компьютер будет включаться быстрее.`)
     : 'Не нашёл программ, которые запускаются при включении.';
   list.innerHTML = d.map((p) => `
     <div class="autostart-card"><div class="autostart-card-left"><span class="autostart-icon">${escHtml(p.icon)}</span><div>
@@ -349,7 +359,8 @@ function renderProgramsMenu() {
   const junk = d.filter((p) => p.category === 'junk');
   const other = d.filter((p) => p.category === 'other' || p.category === 'used');
   const sys = d.filter((p) => p.category === 'system');
-  $('programs-subtitle').textContent = `На компьютере ${d.length} программ.` + (junk.length ? ` Есть ${junk.length}, которые обычно не нужны.` : ' Лишних не нашёл.');
+  $('programs-subtitle').textContent = `На компьютере ${d.length} ${plural(d.length, 'программа', 'программы', 'программ')}.` +
+    (junk.length ? ` Есть ${junk.length} ${plural(junk.length, 'программа, которая обычно не нужна', 'программы, которые обычно не нужны', 'программ, которые обычно не нужны')}.` : ' Лишних не нашёл.');
   const junkMenu = $('prog-menu-junk');
   if (junk.length) { junkMenu.style.display = ''; $('prog-count-junk').textContent = junk.length; } else junkMenu.style.display = 'none';
   $('prog-count-other').textContent = other.length;

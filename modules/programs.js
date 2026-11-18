@@ -94,6 +94,7 @@ function buildList(raw) {
   for (const p of arr) {
     const name = (p.name || '').trim();
     if (!name || seen.has(name.toLowerCase())) continue;
+    if (/^расхламитель/i.test(name)) continue; // себя в списке не показываем
     seen.add(name.toLowerCase());
     const sizeBytes = (Number(p.sizeKb) || 0) * 1024;
     list.push({

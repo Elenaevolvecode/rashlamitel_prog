@@ -15,6 +15,28 @@ function fitHeight() {
   return Math.max(MIN_H, Math.min(WIN_H, work - TITLE_BAR));
 }
 
+/**
+ * Окно уже создано: меряем его настоящий размер с рамкой и заголовком
+ * (он зависит от масштаба экрана и темы Windows) и, если окно не влезает
+ * над панелью задач, уменьшаем высоту и ставим его по центру свободной области.
+ */
+function fitToWorkArea(win) {
+  try {
+    const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+    const outer = win.getBounds();
+    const [cw, ch] = win.getContentSize();
+    const frame = outer.height - ch; // заголовок + рамки, как есть на этом компьютере
+    const maxContent = wa.height - frame - 4;
+    if (ch > maxContent) {
+      win.setResizable(true); // на части систем размер нерастягиваемого окна не меняется
+      win.setContentSize(cw, Math.max(MIN_H, maxContent));
+      win.setResizable(false);
+    }
+    const b = win.getBounds();
+    win.setPosition(Math.round(wa.x + (wa.width - b.width) / 2), Math.round(wa.y + Math.max(0, (wa.height - b.height) / 2)));
+  } catch (e) { console.error('fitToWorkArea', e); }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: WIN_W, height: fitHeight(), useContentSize: true, center: true,
@@ -27,6 +49,7 @@ function createWindow() {
     },
     backgroundColor: '#FFFFFF',
   });
+  fitToWorkArea(mainWindow);
   mainWindow.loadFile('index.html');
   mainWindow.setMenuBarVisibility(false);
   // Ссылки (сайт, почта) открываем в браузере, а не внутри программы

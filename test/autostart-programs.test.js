@@ -71,3 +71,8 @@ test('автозагрузка: имена без .lnk и хвостов _disabl
   assert.strictEqual(displayName('movavika_suiteplatform_3.2.0_suiteplatform_disabled_disabled'), 'movavika_suiteplatform_3.2.0_suiteplatform');
   assert.strictEqual(displayName('Telegram'), 'Telegram');
 });
+
+test('программы: Расхламитель не показывает сам себя', () => {
+  const list = buildPrograms([{ name: 'Расхламитель ПК 0.9.1', sizeKb: 1 }, { name: 'Telegram Desktop', sizeKb: 1 }]);
+  assert.deepStrictEqual(list.map((p) => p.name), ['Telegram Desktop']);
+});

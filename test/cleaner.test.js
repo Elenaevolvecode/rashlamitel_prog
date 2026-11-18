@@ -75,3 +75,7 @@ test('открытый браузер можно пропустить', async ()
   assert.strictEqual(res.internet, 0);
   assert.ok(fs.existsSync(path.join(home, 'AppData/Local/Google/Chrome/User Data/Default/Cache/Cache_Data/f1')));
 });
+
+test('окончания: 1 файл, 2 файла, 5 файлов, 11 файлов, 21 файл', () => {
+  assert.deepStrictEqual([1, 2, 5, 11, 21, 104].map(cleaner.filesWord), ['1 файл', '2 файла', '5 файлов', '11 файлов', '21 файл', '104 файла']);
+});

@@ -13,6 +13,12 @@ const { dedupePaths, scanDir, cleanDir } = require('./fsutil');
 
 const DAY = 86400000;
 
+function filesWord(n) {
+  const m10 = n % 10, m100 = n % 100;
+  const w = m10 === 1 && m100 !== 11 ? 'файл' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'файла' : 'файлов';
+  return `${n} ${w}`;
+}
+
 // Браузеры на движке Chromium: папка профилей и имя процесса
 const CHROMIUM = [
   { id: 'chrome', name: 'Google Chrome', dir: ['Google', 'Chrome', 'User Data'], process: 'chrome' },
@@ -209,7 +215,7 @@ async function clean(scanResults, opts = {}, onProgress = () => {}) {
 
   for (let i = 0; i < STEPS.length; i++) {
     const step = { ...STEPS[i] };
-    if (step.id === 'recycle') step.sub = o.emptyRecycle ? `${scanResults.recycle.files} файлов` : 'Пропускаю — вы решили не очищать';
+    if (step.id === 'recycle') step.sub = o.emptyRecycle ? filesWord(scanResults.recycle.files) : 'Пропускаю — вы решили не очищать';
     onProgress({ step: i, total: STEPS.length, id: step.id, text: step.text, sub: step.sub, freed: result.totalFreed });
 
     let freed = 0;
@@ -243,4 +249,4 @@ async function clean(scanResults, opts = {}, onProgress = () => {}) {
   return result;
 }
 
-module.exports = { scan, clean, getTargets, scanDownloads, getRunningBrowsers, closeBrowsers, STEPS, BROWSERS };
+module.exports = { filesWord, scan, clean, getTargets, scanDownloads, getRunningBrowsers, closeBrowsers, STEPS, BROWSERS };
