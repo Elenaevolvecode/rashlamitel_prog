@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
 const cleaner = require('./modules/cleaner');
 const autostart = require('./modules/autostart');
@@ -7,9 +7,17 @@ const { createStore } = require('./modules/store');
 
 let mainWindow, store, lastScan = null, cleaning = false;
 
+// Окно 600×700, но на невысоких экранах ноутбуков (1366×768) уменьшаем высоту,
+// чтобы окно целиком помещалось над панелью задач вместе с заголовком.
+const WIN_W = 600, WIN_H = 700, TITLE_BAR = 40, MIN_H = 520;
+function fitHeight() {
+  const work = screen.getPrimaryDisplay().workAreaSize.height;
+  return Math.max(MIN_H, Math.min(WIN_H, work - TITLE_BAR));
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 600, height: 700, useContentSize: true,
+    width: WIN_W, height: fitHeight(), useContentSize: true, center: true,
     resizable: false, maximizable: false, fullscreenable: false,
     title: 'Расхламитель ПК',
     icon: path.join(__dirname, 'assets', 'icon.png'),

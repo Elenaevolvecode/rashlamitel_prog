@@ -42,7 +42,7 @@ body{font-family:'Raleway',sans-serif;font-size:14px;color:var(--text-primary);b
 .speech-bubble{background:#f8f6f2;border:1px solid var(--border-brass);border-radius:10px 10px 10px 3px;padding:8px 12px;font-size:13px;color:var(--text-secondary);line-height:1.4}
 
 /* Main */
-.main-content{flex:1;display:flex;flex-direction:column;padding:0 var(--px);overflow:hidden}
+.main-content{flex:1;display:flex;flex-direction:column;padding:0 var(--px);overflow-y:auto;min-height:0}
 .main-top-row{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0 2px;flex-shrink:0}
 .main-robot-img{width:80px;height:100px;object-fit:contain;flex-shrink:0}
 .main-top-right{flex:1;display:flex;flex-direction:column;gap:8px}
@@ -51,7 +51,7 @@ body{font-family:'Raleway',sans-serif;font-size:14px;color:var(--text-primary);b
 .trash-bar{flex:1;height:8px;background:#f0ece6;border-radius:4px;overflow:hidden}
 .trash-bar-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent-amber),#e05a15);border-radius:4px;transition:width .5s}
 .trash-amount{font-size:14px;font-weight:600;white-space:nowrap}
-.main-btn-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.main-btn-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:6px;padding:8px 0}
 .scan-details{width:100%;border:1px solid var(--border-brass);border-radius:var(--radius-card);overflow:hidden;margin-bottom:6px}
 .scan-details.hidden{display:none}
 .scan-detail-row{display:flex;justify-content:space-between;padding:5px 12px;font-size:12px;border-bottom:1px solid var(--border-brass)}
@@ -79,7 +79,7 @@ body{font-family:'Raleway',sans-serif;font-size:14px;color:var(--text-primary);b
 .cleaning-steps{width:100%}.step-item{padding:5px 0;font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:6px}
 .step-item.active{color:var(--text-primary);font-weight:600}.step-item.done{color:var(--btn-green-mid)}
 
-.result-content{flex:1;display:flex;flex-direction:column;padding:12px var(--px) 0;overflow:hidden}
+.result-content{flex:1;display:flex;flex-direction:column;padding:12px var(--px) 0;overflow-y:auto;min-height:0}
 .result-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-shrink:0}
 .result-robot{width:100px;height:125px;object-fit:contain;flex-shrink:0}
 .result-info{text-align:center;flex:1}

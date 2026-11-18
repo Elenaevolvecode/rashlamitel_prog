@@ -357,7 +357,7 @@ function renderProgramsMenu() {
 }
 
 function programCard(p, { removable, locked } = {}) {
-  return `<div class="program-card"><div class="program-info"><span class="program-name">${escHtml(p.name)}</span><span class="program-size">${escHtml(p.size)}</span>${p.reason ? `<span class="program-reason">${escHtml(p.reason)}</span>` : ''}</div>` +
+  return `<div class="program-card"><div class="program-info"><span class="program-name">${escHtml(p.name)}</span>${p.sizeBytes ? `<span class="program-size">${escHtml(p.size)}</span>` : ''}${p.reason ? `<span class="program-reason">${escHtml(p.reason)}</span>` : ''}</div>` +
     (removable ? `<button class="btn-remove" onclick="doUninstall('${escHtml(p.id)}')">Удалить</button>` : '') +
     (locked ? '<span class="btn-system">🔒</span>' : '') + '</div>';
 }

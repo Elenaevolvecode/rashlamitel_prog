@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
+const { displayName, approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
 const { classify, parseUninstall, buildList: buildPrograms } = require('../modules/programs');
 
 test('автозагрузка: правильный раздел StartupApproved', () => {
@@ -12,6 +12,8 @@ test('автозагрузка: правильный раздел StartupApprove
     { hive: 'HKCU', sub: 'StartupFolder', valueName: 'Zoom.lnk' });
   assert.deepStrictEqual(approvedKeyFor({ name: 'Tool', command: 'C:\\x\\tool.exe', location: 'Common Startup' }),
     { hive: 'HKLM', sub: 'StartupFolder', valueName: 'Tool.lnk' });
+  assert.deepStrictEqual(approvedKeyFor({ name: 'Voice.ai - Voice Changer.lnk', command: 'C:\\Users\\x\\voice.exe', location: 'Startup' }),
+    { hive: 'HKCU', sub: 'StartupFolder', valueName: 'Voice.ai - Voice Changer.lnk' });
   assert.strictEqual(approvedKeyFor({ name: 'Once', location: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce' }), null);
 });
 
@@ -61,4 +63,11 @@ test('программы: интерфейс не получает команд�
   assert.strictEqual(list[0].id, '0');
   assert.strictEqual(list[0].size, '2 МБ');
   assert.ok('_uninstall' in list[0]); // внутри есть, но getInstalledPrograms его вырезает
+});
+
+test('автозагрузка: имена без .lnk и хвостов _disabled', () => {
+  assert.strictEqual(displayName('Voice.ai - Voice Changer.lnk'), 'Voice.ai - Voice Changer');
+  assert.strictEqual(displayName('Skrinshoter_disabled_disabled'), 'Skrinshoter');
+  assert.strictEqual(displayName('movavika_suiteplatform_3.2.0_suiteplatform_disabled_disabled'), 'movavika_suiteplatform_3.2.0_suiteplatform');
+  assert.strictEqual(displayName('Telegram'), 'Telegram');
 });

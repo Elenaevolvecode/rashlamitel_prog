@@ -29,7 +29,11 @@ function approvedKeyFor(entry) {
   if (loc.includes('RUNONCE')) return null;
   if (loc === 'STARTUP' || loc === 'COMMON STARTUP') {
     const cmd = (entry.command || '').trim();
-    const valueName = /\.(lnk|exe|bat|cmd|url)$/i.test(cmd) && !cmd.includes('\\') ? cmd : `${entry.name}.lnk`;
+    const name = (entry.name || '').trim();
+    let valueName;
+    if (/\.(lnk|exe|bat|cmd|url)$/i.test(name)) valueName = name; // Windows часто отдаёт имя уже с .lnk
+    else if (/\.(lnk|exe|bat|cmd|url)$/i.test(cmd) && !cmd.includes('\\')) valueName = cmd;
+    else valueName = `${name}.lnk`;
     return { hive: loc === 'STARTUP' ? 'HKCU' : 'HKLM', sub: 'StartupFolder', valueName };
   }
   const sub = loc.includes('WOW6432NODE') ? 'Run32' : 'Run';
@@ -46,6 +50,16 @@ function isForCurrentUser(entry, username = os.userInfo().username) {
   if (u === me || u.endsWith('\\' + me)) return true;
   // Общие записи (HKLM, общая папка «Автозагрузка»)
   return ['public', 'all users', 'nt authority\\system', '.default'].some((x) => u.includes(x));
+}
+
+/**
+ * Человеческое имя записи: без «.lnk» и без хвостов «_disabled»,
+ * которые дописывают некоторые программы-оптимизаторы при отключении.
+ */
+function displayName(raw) {
+  let n = String(raw || '').trim().replace(/\.(lnk|url)$/i, '');
+  n = n.replace(/([ _.-]?disabled)+$/i, '').trim();
+  return n || String(raw || '').trim();
 }
 
 /** Флаг в StartupApproved: нечётный первый байт = отключено (02/06 — вкл, 03/07 — откл). */
@@ -125,7 +139,7 @@ function buildList(raw, database, username) {
     const category = db ? db.category : 'yellow';
     list.push({
       id,
-      name: db ? db.names[0] : e.name,
+      name: db ? db.names[0] : displayName(e.name),
       category,
       label: LABELS[category],
       description: db ? db.description : 'Запускается при включении компьютера',
@@ -174,4 +188,4 @@ async function setEnabled(id, enabled) {
   return { ok, cancelled };
 }
 
-module.exports = { getAutostart, setEnabled, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
+module.exports = { getAutostart, setEnabled, displayName, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
