@@ -1,9 +1,11 @@
 /**
  * Модуль очистки.
  *
- * Сканирование и удаление файлов сделаны на Node (fsutil), PowerShell нужен
- * только для Корзины и проверки запущенных браузеров.
- * Итоговые цифры — это то, что реально удалилось, а не то, что нашлось при сканировании.
+ * Мусор разбит на понятные пункты (браузер, временные файлы, Telegram…).
+ * У каждого пункта пояснение простым языком: что это, почему можно удалить, что будет после.
+ * Сканирование и удаление файлов — на Node (fsutil); PowerShell нужен только для Корзины
+ * и проверки, открыты ли программы.
+ * Итоговые цифры — то, что реально удалилось, а не то, что нашлось при сканировании.
  */
 const path = require('path');
 const os = require('os');
@@ -19,85 +21,108 @@ function filesWord(n) {
   return `${n} ${w}`;
 }
 
-// Браузеры на движке Chromium: папка профилей и имя процесса
-const CHROMIUM = [
-  { id: 'chrome', name: 'Google Chrome', dir: ['Google', 'Chrome', 'User Data'], process: 'chrome' },
-  { id: 'edge', name: 'Microsoft Edge', dir: ['Microsoft', 'Edge', 'User Data'], process: 'msedge' },
-  { id: 'yandex', name: 'Яндекс Браузер', dir: ['Yandex', 'YandexBrowser', 'User Data'], process: 'browser' },
-];
-const CHROMIUM_CACHE_DIRS = ['Cache', 'Code Cache', 'GPUCache'];
-const BROWSERS = [
-  ...CHROMIUM.map(({ id, name, process }) => ({ id, name, process })),
-  { id: 'opera', name: 'Opera', process: 'opera' },
-  { id: 'firefox', name: 'Firefox', process: 'firefox' },
-];
-
-const DOWNLOAD_EXTS = ['.exe', '.msi', '.iso'];
-const DOWNLOAD_MIN_AGE = 30 * DAY;
-
-function listDirs(p, filter) {
+function listDirs(p, filter = () => true) {
   try {
     return fs.readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory() && filter(d.name)).map((d) => d.name);
   } catch { return []; }
 }
 
-/**
- * Где искать мусор. env и home подставляются в тестах.
- * Каждая цель: { path, minAgeMs?, browser? }
- */
-function getTargets(env = process.env, home = os.homedir()) {
-  const local = env.LOCALAPPDATA || path.join(home, 'AppData', 'Local');
-  const windir = env.WINDIR || env.SystemRoot || 'C:\\Windows';
+const CHROMIUM_CACHE_DIRS = ['Cache', 'Code Cache', 'GPUCache'];
 
-  const internet = [];
-  for (const b of CHROMIUM) {
-    const root = path.join(local, ...b.dir);
-    const profiles = listDirs(root, (n) => n === 'Default' || n.startsWith('Profile '));
-    for (const prof of profiles) {
-      for (const c of CHROMIUM_CACHE_DIRS) internet.push({ path: path.join(root, prof, c), browser: b.id });
-    }
+/** Кэш браузера на Chromium: все профили (Default, Profile 1, …). */
+function chromiumCache(root) {
+  const out = [];
+  for (const prof of listDirs(root, (n) => n === 'Default' || n.startsWith('Profile '))) {
+    for (const c of CHROMIUM_CACHE_DIRS) out.push(path.join(root, prof, c));
   }
-  const opera = path.join(local, 'Opera Software', 'Opera Stable');
-  for (const c of CHROMIUM_CACHE_DIRS) internet.push({ path: path.join(opera, c), browser: 'opera' });
-  const ff = path.join(local, 'Mozilla', 'Firefox', 'Profiles');
-  for (const prof of listDirs(ff, () => true)) internet.push({ path: path.join(ff, prof, 'cache2'), browser: 'firefox' });
+  return out;
+}
 
-  // Временные файлы: свежие (моложе суток) не трогаем — с ними может работать установщик
-  const programs = [
-    { path: env.TEMP || path.join(local, 'Temp'), minAgeMs: DAY },
-    { path: path.join(windir, 'Temp'), minAgeMs: DAY },
-  ];
-
-  const other = [
-    { path: path.join(local, 'Microsoft', 'Windows', 'INetCache') },
-    { path: path.join(local, 'CrashDumps') },
-  ];
-
-  // Убираем дубли и вложенные папки во всех категориях сразу (например, Temp\Low внутри Temp)
-  const all = dedupePaths([...internet, ...programs, ...other].map((t) => t.path));
-  const keep = (list) => list.filter((t) => all.includes(t.path));
+function browserTexts(name) {
   return {
-    internet: keep(internet),
-    programs: keep(programs),
-    other: keep(other),
-    downloads: path.join(home, 'Downloads'),
+    what: `Кусочки сайтов, которые ${name} сохранил «про запас», чтобы быстрее их открывать.`,
+    why: 'Пароли, закладки, история и входы на сайты не трогаю — только этот запас.',
+    after: 'Сайты первый раз откроются чуть медленнее, потом всё как обычно.',
   };
 }
 
-async function scanTargets(targets, now) {
-  const res = { size: 0, files: 0, targets: [] };
-  for (const t of targets) {
-    const s = await scanDir(t.path, { minAgeMs: t.minAgeMs, now });
-    if (s.files > 0) {
-      res.size += s.bytes; res.files += s.files;
-      res.targets.push({ ...t, size: s.bytes });
-    }
-  }
-  return res;
+const DOWNLOAD_EXTS = ['.exe', '.msi', '.iso'];
+const DOWNLOAD_MIN_AGE = 30 * DAY;
+
+/**
+ * Описание всех пунктов очистки. env и home подставляются в тестах.
+ * kind: 'dirs' — чистим содержимое папок; 'downloads' — старые установщики в Корзину; 'recycle' — Корзина.
+ * process — имя процесса программы: если она открыта, её файлы заняты, спросим, закрыть ли.
+ */
+function getItems(env = process.env, home = os.homedir()) {
+  const local = env.LOCALAPPDATA || path.join(home, 'AppData', 'Local');
+  const roaming = env.APPDATA || path.join(home, 'AppData', 'Roaming');
+  const windir = env.WINDIR || env.SystemRoot || 'C:\\Windows';
+  const tdata = path.join(roaming, 'Telegram Desktop', 'tdata');
+
+  const items = [
+    // --- Интернет ---
+    { id: 'chrome', group: 'internet', icon: '🌐', title: 'Google Chrome', process: 'chrome',
+      paths: chromiumCache(path.join(local, 'Google', 'Chrome', 'User Data')), ...browserTexts('Chrome') },
+    { id: 'yandex', group: 'internet', icon: '🌐', title: 'Яндекс Браузер', process: 'browser',
+      paths: chromiumCache(path.join(local, 'Yandex', 'YandexBrowser', 'User Data')), ...browserTexts('Яндекс Браузер') },
+    { id: 'edge', group: 'internet', icon: '🌐', title: 'Microsoft Edge', process: 'msedge',
+      paths: chromiumCache(path.join(local, 'Microsoft', 'Edge', 'User Data')), ...browserTexts('Edge') },
+    { id: 'opera', group: 'internet', icon: '🌐', title: 'Opera', process: 'opera',
+      paths: CHROMIUM_CACHE_DIRS.map((c) => path.join(local, 'Opera Software', 'Opera Stable', c)), ...browserTexts('Opera') },
+    { id: 'firefox', group: 'internet', icon: '🌐', title: 'Firefox', process: 'firefox',
+      paths: listDirs(path.join(local, 'Mozilla', 'Firefox', 'Profiles')).map((p) => path.join(local, 'Mozilla', 'Firefox', 'Profiles', p, 'cache2')),
+      ...browserTexts('Firefox') },
+
+    // --- Программы ---
+    { id: 'telegram', group: 'apps', icon: '💬', title: 'Telegram', process: 'Telegram',
+      paths: listDirs(tdata, (n) => n.startsWith('user_data')).flatMap((u) => [path.join(tdata, u, 'cache'), path.join(tdata, u, 'media_cache')]),
+      what: 'Картинки, видео и стикеры из чатов, которые вы уже смотрели. Telegram хранит копии, чтобы показывать их быстрее.',
+      why: 'Всё хранится на серверах Telegram — переписка и файлы не пропадут. Файлы, которые вы сами скачали в «Загрузки», не трогаю.',
+      after: 'Старые фото и видео в чатах при открытии загрузятся заново.' },
+    { id: 'discord', group: 'apps', icon: '🎧', title: 'Discord', process: 'Discord',
+      paths: CHROMIUM_CACHE_DIRS.map((c) => path.join(roaming, 'discord', c)),
+      what: 'Временные файлы Discord: картинки, аватарки, кусочки интерфейса.',
+      why: 'Сообщения и серверы хранятся в интернете, у Discord.',
+      after: 'Discord первый раз откроется чуть медленнее.' },
+    { id: 'steam', group: 'apps', icon: '🎮', title: 'Steam', process: 'steamwebhelper',
+      paths: [path.join(local, 'Steam', 'htmlcache')],
+      what: 'Сохранённые страницы магазина и сообщества Steam.',
+      why: 'Игры и сохранения в играх не трогаю.',
+      after: 'Магазин Steam первый раз откроется чуть медленнее.' },
+
+    // --- Windows ---
+    { id: 'temp', group: 'windows', icon: '🗂', title: 'Временные файлы', minAgeMs: DAY,
+      paths: [env.TEMP || path.join(local, 'Temp'), path.join(windir, 'Temp')],
+      what: 'Файлы, которые программы создают на время работы и забывают за собой убрать — как крошки после обеда.',
+      why: 'Беру только файлы старше суток — с ними уже никто не работает. Занятые файлы пропускаю.',
+      after: 'Ничего не изменится, просто станет больше места.' },
+    { id: 'syscache', group: 'windows', icon: '🧾', title: 'Отчёты об ошибках и кэш Windows',
+      paths: [path.join(local, 'Microsoft', 'Windows', 'INetCache'), path.join(local, 'CrashDumps')],
+      what: 'Отчёты о сбоях программ и старый кэш встроенного браузера Windows.',
+      why: 'Эти отчёты нужны только разработчикам программ, вам — нет.',
+      after: 'Ничего не изменится.' },
+
+    // --- Ваши файлы ---
+    { id: 'downloads', group: 'user', icon: '📥', title: 'Старые установщики', kind: 'downloads',
+      dir: path.join(home, 'Downloads'),
+      what: 'Файлы установки программ (.exe, .msi, .iso) в «Загрузках», которые лежат больше месяца. Программы давно установлены, а установщики занимают место.',
+      why: 'Не удаляю насовсем, а переношу в Корзину — если что, их можно вернуть.',
+      after: 'Место освободится, когда очистите Корзину.' },
+    { id: 'recycle', group: 'user', icon: '🗑', title: 'Корзина', kind: 'recycle', defaultOn: false,
+      what: 'Файлы, которые вы удалили сами.',
+      warn: 'Вернуть их после очистки будет нельзя. Поэтому галочка не стоит — поставьте, только если уверены.',
+      after: 'Место освободится сразу.' },
+  ];
+
+  // Одна и та же папка не должна попасть в два пункта, и вложенные папки не считаем дважды
+  const allPaths = dedupePaths(items.flatMap((i) => i.paths || []));
+  for (const i of items) if (i.paths) i.paths = i.paths.filter((p) => allPaths.includes(p));
+  return items.map((i) => ({ kind: 'dirs', defaultOn: true, ...i }));
 }
 
 function scanDownloads(dir, now = Date.now()) {
-  const res = { size: 0, files: 0, items: [] };
+  const res = { size: 0, files: 0, list: [] };
   let names;
   try { names = fs.readdirSync(dir); } catch { return res; }
   for (const f of names) {
@@ -108,10 +133,11 @@ function scanDownloads(dir, now = Date.now()) {
       if (!st.isFile()) continue;
       if (now - st.mtimeMs > DOWNLOAD_MIN_AGE) {
         res.size += st.size; res.files += 1;
-        res.items.push({ name: f, size: st.size, path: fp });
+        res.list.push({ name: f, size: st.size, path: fp });
       }
     } catch {}
   }
+  res.list.sort((a, b) => b.size - a.size);
   return res;
 }
 
@@ -141,112 +167,119 @@ async function emptyRecycleBin() {
   await ps.run('try { Clear-RecycleBin -Force -ErrorAction Stop } catch {}');
 }
 
-// --- Браузеры ---
-/** Какие браузеры сейчас открыты (есть окно на экране). */
-async function getRunningBrowsers() {
-  if (process.platform !== 'win32') return [];
-  const names = BROWSERS.map((b) => b.process);
+// --- Открытые программы ---
+/** Какие из процессов сейчас открыты (есть окно на экране). Возвращает имена процессов в нижнем регистре. */
+async function runningProcesses(names) {
+  if (process.platform !== 'win32' || !names.length) return [];
   const running = await ps.runJson(
     `@(Get-Process -Name $A.names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ` +
     `Select-Object -ExpandProperty ProcessName -Unique) | ConvertTo-Json -Compress`,
     { names }, []);
   const list = Array.isArray(running) ? running : running ? [running] : [];
-  const lower = list.map((n) => String(n).toLowerCase());
-  return BROWSERS.filter((b) => lower.includes(b.process)).map(({ id, name }) => ({ id, name }));
+  return list.map((n) => String(n).toLowerCase());
 }
 
-/** Аккуратно закрыть окна браузеров (как крестиком). Принудительно не убиваем — чтобы ничего не потерять. */
-async function closeBrowsers(ids) {
-  const procs = BROWSERS.filter((b) => ids.includes(b.id)).map((b) => b.process);
-  if (!procs.length || process.platform !== 'win32') return [];
+/** Аккуратно закрыть окна программ (как крестиком). Принудительно не убиваем — чтобы ничего не потерять. */
+async function closeProcesses(names) {
+  if (!names.length || process.platform !== 'win32') return [];
   await ps.run(
-    `Get-Process -Name $A.procs -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ` +
+    `Get-Process -Name $A.names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ` +
     `ForEach-Object { [void]$_.CloseMainWindow() }
      $deadline = (Get-Date).AddSeconds(8)
      while ((Get-Date) -lt $deadline) {
-       if (-not (Get-Process -Name $A.procs -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 })) { break }
+       if (-not (Get-Process -Name $A.names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 })) { break }
        Start-Sleep -Milliseconds 300
-     }`, { procs });
-  const still = await getRunningBrowsers();
-  return still.filter((b) => ids.includes(b.id));
+     }`, { names });
+  return runningProcesses(names);
 }
 
-// --- Основной сценарий ---
-async function scan({ env, home, now = Date.now() } = {}) {
-  const t = getTargets(env, home);
-  const r = {
-    internet: await scanTargets(t.internet, now),
-    programs: await scanTargets(t.programs, now),
-    other: await scanTargets(t.other, now),
-    downloads: scanDownloads(t.downloads, now),
-    recycle: await queryRecycleBin(),
-  };
-  r.total = r.internet.size + r.programs.size + r.other.size + r.downloads.size + r.recycle.size;
-  return r;
-}
-
-const STEPS = [
-  { id: 'internet', text: 'Убираю мусор из интернета…', sub: 'Chrome, Яндекс Браузер, Edge, Opera, Firefox' },
-  { id: 'programs', text: 'Удаляю остатки от программ…', sub: 'Временные файлы Windows' },
-  { id: 'recycle', text: 'Очищаю корзину…', sub: '' },
-  { id: 'downloads', text: 'Проверяю скачанные файлы…', sub: 'Старые установщики — в Корзину' },
-  { id: 'other', text: 'Почти готово!', sub: 'Кэш и отчёты об ошибках' },
-];
-
-async function cleanTargets(targets, opts, skipBrowsers) {
-  const res = { freed: 0, failed: 0 };
-  for (const t of targets) {
-    if (t.browser && skipBrowsers.includes(t.browser)) continue;
-    const c = await cleanDir(t.path, { minAgeMs: t.minAgeMs, dryRun: opts.dryRun, now: opts.now });
-    res.freed += c.freed; res.failed += c.failed;
-  }
-  return res;
-}
-
+// --- Сканирование ---
 /**
- * opts: { dryRun, emptyRecycle, skipBrowsers: [id], trash: async (path) => void, now }
- * trash — перемещение файла в Корзину (в Electron это shell.trashItem).
+ * Возвращает { items: [...], total }.
+ * У каждого найденного пункта: id, group, icon, title, what, why, after, warn, defaultOn, size, files,
+ * а также служебные поля (paths, list), которые в интерфейс не отдаём.
  */
-async function clean(scanResults, opts = {}, onProgress = () => {}) {
-  const o = { dryRun: !!opts.dryRun, emptyRecycle: !!opts.emptyRecycle, skipBrowsers: opts.skipBrowsers || [],
-    trash: opts.trash, now: opts.now || Date.now() };
-  const result = { dryRun: o.dryRun, totalFreed: 0, movedToTrash: 0, failedFiles: 0,
-    skipped: { recycle: !o.emptyRecycle, browsers: o.skipBrowsers } };
-
-  for (let i = 0; i < STEPS.length; i++) {
-    const step = { ...STEPS[i] };
-    if (step.id === 'recycle') step.sub = o.emptyRecycle ? filesWord(scanResults.recycle.files) : 'Пропускаю — вы решили не очищать';
-    onProgress({ step: i, total: STEPS.length, id: step.id, text: step.text, sub: step.sub, freed: result.totalFreed });
-
-    let freed = 0;
-    if (step.id === 'internet' || step.id === 'programs' || step.id === 'other') {
-      const r = await cleanTargets(scanResults[step.id].targets, o, step.id === 'internet' ? o.skipBrowsers : []);
-      freed = r.freed; result.failedFiles += r.failed;
-    } else if (step.id === 'recycle') {
-      if (o.emptyRecycle) {
-        if (o.dryRun) freed = scanResults.recycle.size;
-        else {
-          const before = (await queryRecycleBin()).size;
-          await emptyRecycleBin();
-          const after = (await queryRecycleBin()).size;
-          freed = Math.max(0, before - after);
-        }
+async function scan({ env, home, now = Date.now() } = {}) {
+  const items = [];
+  for (const def of getItems(env, home)) {
+    const it = { ...def, size: 0, files: 0 };
+    if (def.kind === 'dirs') {
+      it.targets = [];
+      for (const p of def.paths) {
+        const s = await scanDir(p, { minAgeMs: def.minAgeMs, now });
+        if (s.files > 0) { it.size += s.bytes; it.files += s.files; it.targets.push(p); }
       }
-    } else if (step.id === 'downloads') {
-      for (const item of scanResults.downloads.items) {
-        if (o.dryRun) { freed += item.size; continue; }
-        if (!o.trash) continue;
-        try { await o.trash(item.path); freed += item.size; } catch { result.failedFiles += 1; }
+    } else if (def.kind === 'downloads') {
+      const d = scanDownloads(def.dir, now);
+      it.size = d.size; it.files = d.files; it.list = d.list;
+    } else if (def.kind === 'recycle') {
+      const r = await queryRecycleBin();
+      it.size = r.size; it.files = r.files;
+    }
+    if (it.files > 0) items.push(it);
+  }
+  return { items, total: items.reduce((s, i) => s + i.size, 0) };
+}
+
+/** Версия результата сканирования для интерфейса: без путей к папкам. */
+function forUi(scanResult) {
+  return {
+    total: scanResult.total,
+    items: scanResult.items.map((i) => ({
+      id: i.id, group: i.group, icon: i.icon, title: i.title, what: i.what, why: i.why || '', after: i.after || '',
+      warn: i.warn || '', defaultOn: i.defaultOn, size: i.size, files: i.files, process: i.process || '',
+      list: i.list ? i.list.slice(0, 20).map((f) => ({ name: f.name, size: f.size })) : undefined,
+    })),
+  };
+}
+
+// --- Очистка ---
+/**
+ * opts: { selected: [id], skip: [id] (открытые программы, которые не закрыли), dryRun, trash: async (path) => void, now }
+ * Возвращает { dryRun, items: [{ id, title, freed, moved }], totalFreed, movedToTrash, failedFiles }.
+ * totalFreed — реально освобождённое место; movedToTrash — перенесено в Корзину (место пока занято).
+ */
+async function clean(scanResult, opts = {}, onProgress = () => {}) {
+  const selected = new Set(opts.selected || scanResult.items.filter((i) => i.defaultOn).map((i) => i.id));
+  const skip = new Set(opts.skip || []);
+  const dryRun = !!opts.dryRun, now = opts.now || Date.now();
+  const todo = scanResult.items.filter((i) => selected.has(i.id));
+  const result = { dryRun, items: [], totalFreed: 0, movedToTrash: 0, failedFiles: 0 };
+
+  for (let n = 0; n < todo.length; n++) {
+    const it = todo[n];
+    const base = { step: n, total: todo.length, id: it.id, title: it.title };
+    onProgress({ ...base, freed: result.totalFreed + result.movedToTrash });
+    const r = { id: it.id, title: it.title, icon: it.icon, freed: 0, moved: 0, skipped: false };
+
+    if (skip.has(it.id)) {
+      r.skipped = true;
+    } else if (it.kind === 'dirs') {
+      for (const p of it.targets) {
+        const c = await cleanDir(p, { minAgeMs: it.minAgeMs, dryRun, now });
+        r.freed += c.freed; result.failedFiles += c.failed;
+      }
+    } else if (it.kind === 'downloads') {
+      for (const f of it.list) {
+        if (dryRun) { r.moved += f.size; continue; }
+        if (!opts.trash) continue;
+        try { await opts.trash(f.path); r.moved += f.size; } catch { result.failedFiles += 1; }
+      }
+    } else if (it.kind === 'recycle') {
+      if (dryRun) r.freed = it.size;
+      else {
+        const before = (await queryRecycleBin()).size;
+        await emptyRecycleBin();
+        r.freed = Math.max(0, before - (await queryRecycleBin()).size);
       }
     }
 
-    result[step.id] = freed;
-    // Перенесённое в Корзину место ещё занято — в «освобождено» не считаем
-    if (step.id === 'downloads') result.movedToTrash = freed;
-    else result.totalFreed += freed;
-    onProgress({ step: i, total: STEPS.length, id: step.id, text: step.text, sub: step.sub, freed: result.totalFreed, done: true });
+    result.items.push(r);
+    result.totalFreed += r.freed;
+    result.movedToTrash += r.moved;
+    onProgress({ ...base, freed: result.totalFreed + result.movedToTrash, done: true });
   }
   return result;
 }
 
-module.exports = { filesWord, scan, clean, getTargets, scanDownloads, getRunningBrowsers, closeBrowsers, STEPS, BROWSERS };
+module.exports = { scan, forUi, clean, getItems, scanDownloads, runningProcesses, closeProcesses, filesWord };

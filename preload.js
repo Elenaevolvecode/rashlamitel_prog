@@ -12,8 +12,8 @@ contextBridge.exposeInMainWorld('rashlamitel', {
     ipcRenderer.removeAllListeners('cleaner:progress');
     ipcRenderer.on('cleaner:progress', (e, d) => cb(d));
   },
-  getRunningBrowsers: () => ipcRenderer.invoke('cleaner:runningBrowsers'),
-  closeBrowsers: (ids) => ipcRenderer.invoke('cleaner:closeBrowsers', ids),
+  getRunningApps: (selected) => ipcRenderer.invoke('cleaner:runningApps', selected),
+  closeApps: (ids) => ipcRenderer.invoke('cleaner:closeApps', ids),
   // Автозагрузка
   getAutostart: () => ipcRenderer.invoke('autostart:get'),
   setAutostart: (id, enabled) => ipcRenderer.invoke('autostart:set', id, enabled),

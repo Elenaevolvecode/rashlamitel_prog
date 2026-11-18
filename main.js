@@ -69,18 +69,31 @@ ipcMain.handle('store:getAll', () => store.getAll());
 ipcMain.handle('store:set', (e, key, value) => store.set(key, value));
 
 // --- Очистка ---
+const ids = (v) => (Array.isArray(v) ? v.map(String) : []);
+
 ipcMain.handle('cleaner:scan', async () => {
   try { lastScan = await cleaner.scan(); }
-  catch (e) { console.error(e); lastScan = null; }
-  if (!lastScan) return { total: 0, internet: { size: 0 }, programs: { size: 0 }, recycle: { size: 0, files: 0 }, downloads: { size: 0 }, other: { size: 0 } };
-  // В интерфейс отдаём только цифры, без списков путей
-  const brief = (c) => ({ size: c.size, files: c.files });
-  return { total: lastScan.total, internet: brief(lastScan.internet), programs: brief(lastScan.programs),
-    recycle: brief(lastScan.recycle), downloads: brief(lastScan.downloads), other: brief(lastScan.other) };
+  catch (e) { console.error(e); lastScan = { items: [], total: 0 }; }
+  return cleaner.forUi(lastScan); // в интерфейс — только цифры и тексты, без путей
 });
 
-ipcMain.handle('cleaner:runningBrowsers', () => cleaner.getRunningBrowsers());
-ipcMain.handle('cleaner:closeBrowsers', (e, ids) => cleaner.closeBrowsers(Array.isArray(ids) ? ids : []));
+/** Какие из выбранных пунктов принадлежат открытым сейчас программам. */
+ipcMain.handle('cleaner:runningApps', async (e, selected) => {
+  if (!lastScan) return [];
+  const sel = new Set(ids(selected));
+  const withProc = lastScan.items.filter((i) => sel.has(i.id) && i.process);
+  const running = await cleaner.runningProcesses(withProc.map((i) => i.process));
+  return withProc.filter((i) => running.includes(i.process.toLowerCase())).map((i) => ({ id: i.id, title: i.title }));
+});
+
+/** Закрыть программы этих пунктов. Возвращает id тех, что не закрылись. */
+ipcMain.handle('cleaner:closeApps', async (e, list) => {
+  if (!lastScan) return [];
+  const sel = new Set(ids(list));
+  const items = lastScan.items.filter((i) => sel.has(i.id) && i.process);
+  const still = await cleaner.closeProcesses(items.map((i) => i.process));
+  return items.filter((i) => still.includes(i.process.toLowerCase())).map((i) => i.id);
+});
 
 ipcMain.handle('cleaner:clean', async (e, opts = {}) => {
   if (cleaning) return null;
@@ -89,17 +102,15 @@ ipcMain.handle('cleaner:clean', async (e, opts = {}) => {
     if (!lastScan) lastScan = await cleaner.scan();
     const dryRun = store.get('dryRun');
     const result = await cleaner.clean(lastScan, {
-      dryRun,
-      emptyRecycle: !!opts.emptyRecycle,
-      skipBrowsers: Array.isArray(opts.skipBrowsers) ? opts.skipBrowsers : [],
+      dryRun, selected: ids(opts.selected), skip: ids(opts.skip),
       trash: (p) => shell.trashItem(p),
     }, (p) => send('cleaner:progress', p));
-    store.addClean(result.totalFreed, dryRun);
+    store.addClean(result.totalFreed + result.movedToTrash, dryRun);
     lastScan = null;
     return result;
   } catch (err) {
     console.error(err);
-    return { totalFreed: 0, movedToTrash: 0, error: true };
+    return { error: true };
   } finally {
     cleaning = false;
   }

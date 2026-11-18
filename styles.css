@@ -179,3 +179,25 @@ body{font-family:'Raleway',sans-serif;font-size:14px;font-weight:500;font-varian
 .settings-col small{font-size:13px;color:var(--text-secondary);line-height:1.35}
 .program-reason{display:block;font-size:13px;color:var(--text-secondary);margin-top:2px}
 .autostart-hint{font-size:13px;color:var(--text-secondary);display:block}
+/* === Этап 2: экран «Вот что я нашёл» === */
+.preview-list{padding-top:4px}
+.preview-group-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin:12px 0 6px}
+.preview-group-title:first-child{margin-top:4px}
+.preview-card{border:1px solid var(--border-brass);border-radius:var(--radius-card);margin-bottom:6px;background:#fff;transition:box-shadow .15s}
+.preview-card:hover{box-shadow:var(--shadow-card)}
+.preview-row{display:flex;align-items:center;gap:10px;padding:10px 12px 4px;cursor:pointer}
+.preview-row input{width:20px;height:20px;accent-color:#1D8A40;flex-shrink:0;cursor:pointer;margin:0}
+.preview-icon{font-size:18px;width:22px;text-align:center;flex-shrink:0}
+.preview-name{flex:1;font-size:15px;font-weight:600}
+.preview-size{font-size:15px;font-weight:700;color:var(--accent-amber);white-space:nowrap}
+.preview-card.off .preview-size{color:var(--text-secondary);font-weight:500}
+.preview-more{display:block;background:none;border:none;color:var(--accent-teal);font-family:'Raleway',sans-serif;font-size:14px;font-weight:600;cursor:pointer;text-decoration:underline;padding:2px 12px 10px 74px;text-align:left}
+.preview-details{padding:0 14px 12px 74px;font-size:14px;line-height:1.45}
+.preview-details p{margin:0 0 6px}
+.preview-details b{font-weight:700}
+.preview-warn{color:var(--danger);font-weight:600}
+.preview-files{font-size:13px;color:var(--text-secondary);margin:4px 0 0;padding-left:16px}
+.preview-bottom{display:flex;flex-direction:column;gap:8px}
+.preview-total{text-align:center;font-size:15px}
+.preview-total b{color:var(--btn-green-mid);font-weight:700}
+.btn-primary:disabled{opacity:.5;cursor:default}

@@ -9,7 +9,7 @@ const GB = 1073741824;
 const state = {
   navStack: [], currentScreen: null,
   settings: { onboardingDone: false, dryRun: true },
-  scanResults: null, scanning: false, cleaningInProgress: false,
+  scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, progScreen: null,
 };
 
@@ -105,8 +105,35 @@ function openLink(url) {
 }
 
 // ===== Главный экран =====
-const DEMO_SCAN = { internet: { size: 1.8 * GB, files: 4120 }, programs: { size: 0.9 * GB, files: 2310 }, recycle: { size: 0.6 * GB, files: 847 },
-  downloads: { size: 0.3 * GB, files: 3 }, other: { size: 0.1 * GB, files: 112 }, total: 3.7 * GB };
+const GROUPS = { internet: 'Интернет', apps: 'Программы', windows: 'Windows', user: 'Ваши файлы' };
+
+function demoItem(id, group, icon, title, sizeGb, extra = {}) {
+  return { id, group, icon, title, size: Math.round(sizeGb * GB), files: 100, defaultOn: true,
+    what: 'Демо: здесь будет пояснение, что это за файлы.', why: 'Демо: почему их можно удалить.', after: 'Демо: что изменится после.', ...extra };
+}
+const DEMO_ITEMS = [
+  demoItem('chrome', 'internet', '🌐', 'Google Chrome', 1.2, {
+    what: 'Кусочки сайтов, которые Chrome сохранил «про запас», чтобы быстрее их открывать.',
+    why: 'Пароли, закладки, история и входы на сайты не трогаю — только этот запас.',
+    after: 'Сайты первый раз откроются чуть медленнее, потом всё как обычно.' }),
+  demoItem('yandex', 'internet', '🌐', 'Яндекс Браузер', 0.6),
+  demoItem('telegram', 'apps', '💬', 'Telegram', 4.1, {
+    what: 'Картинки, видео и стикеры из чатов, которые вы уже смотрели. Telegram хранит копии, чтобы показывать их быстрее.',
+    why: 'Всё хранится на серверах Telegram — переписка и файлы не пропадут. Файлы, которые вы сами скачали в «Загрузки», не трогаю.',
+    after: 'Старые фото и видео в чатах при открытии загрузятся заново.' }),
+  demoItem('temp', 'windows', '🗂', 'Временные файлы', 0.9),
+  demoItem('syscache', 'windows', '🧾', 'Отчёты об ошибках и кэш Windows', 0.1),
+  demoItem('downloads', 'user', '📥', 'Старые установщики', 0.3, {
+    list: [{ name: 'ChromeSetup.exe', size: 1.3e6 }, { name: 'Zoom_installer.exe', size: 9e7 }, { name: 'office2019.iso', size: 2.2e8 }] }),
+  demoItem('recycle', 'user', '🗑', 'Корзина', 0.6, { defaultOn: false, why: '',
+    what: 'Файлы, которые вы удалили сами.',
+    warn: 'Вернуть их после очистки будет нельзя. Поэтому галочка не стоит — поставьте, только если уверены.' }),
+];
+function demoScan(items = DEMO_ITEMS) { return { items, total: items.reduce((s, i) => s + i.size, 0) }; }
+
+function scanItems() { return (state.scanResults && state.scanResults.items) || []; }
+/** Сколько уберу «по умолчанию» — ровно столько покажет и экран предпросмотра при открытии. */
+function defaultBytes() { return scanItems().filter((i) => i.defaultOn).reduce((s, i) => s + i.size, 0); }
 
 async function scanTrash() {
   if (state.scanning) return;
@@ -115,23 +142,27 @@ async function scanTrash() {
   $('scan-details').classList.add('hidden');
   try {
     if (isElectron) state.scanResults = await api.scan();
-    else { await sleep(500); state.scanResults = DEMO_SCAN; }
+    else { await sleep(500); state.scanResults = demoScan(); }
   } finally { state.scanning = false; }
-  const r = state.scanResults;
-  $('scan-d-internet').textContent = formatBytes(r.internet.size);
-  $('scan-d-programs').textContent = formatBytes(r.programs.size);
-  $('scan-d-recycle').textContent = formatBytes(r.recycle.size);
-  $('scan-d-downloads').textContent = formatBytes(r.downloads.size);
-  $('scan-d-other').textContent = formatBytes(r.other.size);
-  $('scan-details').classList.remove('hidden');
+  state.selected = new Set(scanItems().filter((i) => i.defaultOn).map((i) => i.id));
+
+  // Короткая сводка по группам; подробности — на экране предпросмотра
+  const rows = Object.entries(GROUPS).map(([g, title]) => {
+    const items = scanItems().filter((i) => i.group === g);
+    if (!items.length) return '';
+    const size = items.reduce((s, i) => s + i.size, 0);
+    const names = items.map((i) => i.title).join(', ');
+    return `<div class="scan-detail-row" title="${escHtml(names)}"><span>${escHtml(title)}</span><span>${formatBytes(size)}</span></div>`;
+  }).join('');
+  $('scan-details').innerHTML = rows;
+  $('scan-details').classList.toggle('hidden', !rows);
   updateMainScreen();
 }
 
 function updateMainScreen() {
   const f = $('trash-bar-fill'), a = $('trash-amount'), t = $('main-mascot-text');
   // Корзину в «мусор» не считаем: это файлы пользователя, чистим только с его согласия
-  const r = state.scanResults;
-  const bytes = r ? r.total - r.recycle.size : 0;
+  const bytes = defaultBytes();
   const gb = parseFloat(bytesToGB(bytes));
   const warm = 'linear-gradient(90deg,var(--accent-amber),#e05a15)';
   if (gb > 3) { t.textContent = `Накопилось ${gb} ГБ мусора — пора почистить!`; f.style.width = Math.min(gb / 5 * 100, 100) + '%'; f.style.background = warm; }
@@ -142,52 +173,94 @@ function updateMainScreen() {
   a.textContent = (bytes > 0 && gb === 0 ? formatBytes(bytes) : gb + ' ГБ');
 }
 
+// ===== Экран «Вот что я нашёл» =====
+async function openPreview() {
+  if (state.cleaningInProgress) return;
+  if (state.scanning) { showToast('Секунду, ещё ищу мусор…'); return; }
+  if (!state.scanResults) await scanTrash();
+  if (!scanItems().length) { showToast('Мусора не нашёл — компьютер чистый!'); return; }
+  renderPreview();
+  showScreen('screen-preview');
+}
+
+function previewCard(i) {
+  const on = state.selected.has(i.id);
+  const files = i.list && i.list.length
+    ? `<ul class="preview-files">${i.list.map((f) => `<li>${escHtml(f.name)} — ${formatBytes(f.size)}</li>`).join('')}</ul>` : '';
+  return `<div class="preview-card${on ? '' : ' off'}" id="pc-${escHtml(i.id)}">
+    <label class="preview-row"><input type="checkbox" ${on ? 'checked' : ''} onchange="togglePreviewItem('${escHtml(i.id)}', this.checked)">
+      <span class="preview-icon">${escHtml(i.icon)}</span><span class="preview-name">${escHtml(i.title)}</span><span class="preview-size">${formatBytes(i.size)}</span></label>
+    <button class="preview-more" onclick="togglePreviewDetails('${escHtml(i.id)}', this)">Что это?</button>
+    <div class="preview-details hidden" id="pd-${escHtml(i.id)}">
+      <p><b>Что это:</b> ${escHtml(i.what)}</p>
+      ${i.why ? `<p><b>Почему можно удалить:</b> ${escHtml(i.why)}</p>` : ''}
+      ${i.warn ? `<p class="preview-warn">⚠ ${escHtml(i.warn)}</p>` : ''}
+      ${i.after ? `<p><b>Что будет после:</b> ${escHtml(i.after)}</p>` : ''}
+      ${files}
+    </div></div>`;
+}
+
+function renderPreview() {
+  $('preview-list').innerHTML = Object.entries(GROUPS).map(([g, title]) => {
+    const items = scanItems().filter((i) => i.group === g);
+    return items.length ? `<h3 class="preview-group-title">${escHtml(title)}</h3>` + items.map(previewCard).join('') : '';
+  }).join('');
+  updatePreviewTotal();
+}
+
+function togglePreviewItem(id, on) {
+  if (on) state.selected.add(id); else state.selected.delete(id);
+  const card = $('pc-' + id); if (card) card.classList.toggle('off', !on);
+  updatePreviewTotal();
+}
+
+function togglePreviewDetails(id, btn) {
+  const d = $('pd-' + id); if (!d) return;
+  const open = d.classList.toggle('hidden') === false;
+  btn.textContent = open ? 'Скрыть' : 'Что это?';
+}
+
+function updatePreviewTotal() {
+  const bytes = scanItems().filter((i) => state.selected.has(i.id)).reduce((s, i) => s + i.size, 0);
+  $('preview-total').textContent = formatBytes(bytes);
+  const btn = $('preview-go');
+  btn.disabled = state.selected.size === 0;
+  btn.textContent = state.settings.dryRun ? 'Проверить отмеченное' : 'Убрать отмеченное';
+}
+
 // ===== Очистка =====
-async function askCleanOptions() {
-  const opts = { emptyRecycle: false, skipBrowsers: [] };
-  const r = state.scanResults;
-
-  if (r && r.recycle.size > 0) {
-    opts.emptyRecycle = await confirmDialog({
-      title: 'Очистить Корзину?',
-      text: `В Корзине ${formatBytes(r.recycle.size)} (${r.recycle.files} шт.). Это файлы, которые вы удалили сами. После очистки вернуть их будет нельзя.`,
-      yes: 'Да, очистить Корзину', no: 'Нет, оставить как есть',
-    });
-  }
-
-  // В режиме проверки браузеры не закрываем — незачем
-  if (isElectron && !state.settings.dryRun) {
-    const running = await api.getRunningBrowsers();
-    if (running.length) {
-      const names = running.map((b) => b.name).join(', ');
-      const close = await confirmDialog({
-        title: running.length > 1 ? `Открыты браузеры: ${names}` : `Открыт браузер ${names}`,
-        text: 'Чтобы убрать мусор из браузера, его нужно закрыть. Пароли и закладки я не трогаю, а вкладки браузер предложит восстановить при следующем запуске.',
-        yes: 'Закрыть браузер и почистить', no: 'Не трогать браузер',
-      });
-      if (close) {
-        const still = await api.closeBrowsers(running.map((b) => b.id));
-        if (still.length) showToast(`${still.map((b) => b.name).join(', ')} не закрылся — его пропущу`);
-        opts.skipBrowsers = still.map((b) => b.id);
-      } else opts.skipBrowsers = running.map((b) => b.id);
-    }
-  }
-  return opts;
+/** Если какие-то из выбранных программ открыты — спросить, закрыть ли их. Возвращает id пунктов, которые пропустить. */
+async function askAboutRunningApps(selected) {
+  // В режиме проверки ничего не закрываем — незачем
+  if (!isElectron || state.settings.dryRun) return [];
+  const running = await api.getRunningApps(selected);
+  if (!running.length) return [];
+  const names = running.map((r) => r.title).join(', ');
+  const close = await confirmDialog({
+    title: running.length > 1 ? `Сейчас открыты: ${names}` : `Сейчас открыт ${names}`,
+    text: 'Чтобы убрать их мусор, их нужно закрыть. Ничего не потеряется: пароли, закладки и переписка остаются, а браузер предложит восстановить вкладки.',
+    yes: 'Закрыть и почистить', no: 'Не трогать их',
+  });
+  if (!close) return running.map((r) => r.id);
+  const still = await api.closeApps(running.map((r) => r.id));
+  if (still.length) showToast('Не все программы закрылись — их пропущу');
+  return still;
 }
 
 async function startCleaning() {
   if (state.cleaningInProgress) return;
-  if (state.scanning) { showToast('Секунду, ещё ищу мусор…'); return; }
+  const selected = scanItems().filter((i) => state.selected.has(i.id));
+  if (!selected.length) return;
   state.cleaningInProgress = true;
   try {
-    const opts = await askCleanOptions();
+    const skip = await askAboutRunningApps(selected.map((i) => i.id));
     state.navStack = []; showScreen('screen-cleaning');
-    resetCleanUI();
+    resetCleanUI(selected);
     let result;
     if (isElectron) {
       api.onCleanProgress(updateCleanUI);
-      result = await api.clean(opts);
-    } else result = await runDemo(opts);
+      result = await api.clean({ selected: selected.map((i) => i.id), skip });
+    } else result = await runDemo(selected, skip);
     if (!result || result.error) {
       showToast('Что-то пошло не так. Попробуйте ещё раз');
       state.navStack = []; showScreen('screen-main');
@@ -199,22 +272,25 @@ async function startCleaning() {
   }
 }
 
-function resetCleanUI() {
+function resetCleanUI(items) {
   $('progress-fill').style.width = '0%';
-  $('cleaning-freed').textContent = state.settings.dryRun ? 'Можно освободить: 0.0 ГБ' : 'Освобождено: 0.0 ГБ';
+  $('cleaning-freed').textContent = (state.settings.dryRun ? 'Можно убрать: ' : 'Убрано: ') + '0 Б';
   $('cleaning-percent').textContent = '0%';
-  document.querySelectorAll('.step-item').forEach((el, i) => { el.classList.remove('active', 'done'); el.querySelector('.step-check').textContent = i === 0 ? '●' : '○'; });
+  $('cleaning-step-text').textContent = state.settings.dryRun ? 'Смотрю, что можно убрать…' : 'Начинаю уборку…';
+  $('cleaning-step-sub').textContent = '';
+  $('cleaning-steps').innerHTML = items.map((i) =>
+    `<div class="step-item"><span class="step-check">○</span> ${escHtml(i.icon)} ${escHtml(i.title)}</div>`).join('');
 }
 
 function updateCleanUI(d) {
   // Процент — по шагам: честнее, чем по гигабайтам, которые заранее точно не известны
   const pct = Math.min(100, Math.round(((d.step + (d.done ? 1 : 0.5)) / d.total) * 100));
-  $('cleaning-step-text').textContent = d.text;
-  $('cleaning-step-sub').textContent = d.sub;
+  $('cleaning-step-text').textContent = (state.settings.dryRun ? 'Смотрю: ' : 'Убираю: ') + d.title;
+  $('cleaning-step-sub').textContent = `Шаг ${d.step + 1} из ${d.total}`;
   $('progress-fill').style.width = pct + '%';
-  $('cleaning-freed').textContent = (state.settings.dryRun ? 'Можно освободить: ' : 'Освобождено: ') + bytesToGB(d.freed) + ' ГБ';
+  $('cleaning-freed').textContent = (state.settings.dryRun ? 'Можно убрать: ' : 'Убрано: ') + formatBytes(d.freed);
   $('cleaning-percent').textContent = pct + '%';
-  document.querySelectorAll('.step-item').forEach((el, i) => {
+  document.querySelectorAll('#cleaning-steps .step-item').forEach((el, i) => {
     el.classList.remove('active', 'done');
     const check = el.querySelector('.step-check');
     if (i < d.step || (i === d.step && d.done)) { el.classList.add('done'); check.textContent = '✓'; }
@@ -223,46 +299,40 @@ function updateCleanUI(d) {
   });
 }
 
-async function runDemo(opts) {
-  const r = DEMO_SCAN;
-  const steps = [
-    { id: 'internet', text: 'Убираю мусор из интернета…', sub: 'Chrome, Яндекс Браузер, Edge, Opera, Firefox' },
-    { id: 'programs', text: 'Удаляю остатки от программ…', sub: 'Временные файлы Windows' },
-    { id: 'recycle', text: 'Очищаю корзину…', sub: opts.emptyRecycle ? '847 файлов' : 'Пропускаю — вы решили не очищать' },
-    { id: 'downloads', text: 'Проверяю скачанные файлы…', sub: 'Старые установщики — в Корзину' },
-    { id: 'other', text: 'Почти готово!', sub: 'Кэш и отчёты об ошибках' },
-  ];
-  const res = { dryRun: state.settings.dryRun, totalFreed: 0, movedToTrash: 0, failedFiles: 0, skipped: { recycle: !opts.emptyRecycle, browsers: [] } };
-  for (let i = 0; i < steps.length; i++) {
-    const s = steps[i];
-    updateCleanUI({ step: i, total: steps.length, ...s, freed: res.totalFreed });
-    await sleep(900 + Math.random() * 600);
-    const freed = s.id === 'recycle' && !opts.emptyRecycle ? 0 : r[s.id].size;
-    res[s.id] = freed;
-    if (s.id === 'downloads') res.movedToTrash = freed; else res.totalFreed += freed;
-    updateCleanUI({ step: i, total: steps.length, ...s, freed: res.totalFreed, done: true });
+async function runDemo(items, skip) {
+  const res = { dryRun: state.settings.dryRun, items: [], totalFreed: 0, movedToTrash: 0, failedFiles: 0 };
+  for (let n = 0; n < items.length; n++) {
+    const i = items[n];
+    updateCleanUI({ step: n, total: items.length, title: i.title, freed: res.totalFreed + res.movedToTrash });
+    await sleep(700 + Math.random() * 500);
+    const r = { id: i.id, title: i.title, icon: i.icon, freed: 0, moved: 0, skipped: skip.includes(i.id) };
+    if (!r.skipped) { if (i.id === 'downloads') r.moved = i.size; else r.freed = i.size; }
+    res.items.push(r); res.totalFreed += r.freed; res.movedToTrash += r.moved;
+    updateCleanUI({ step: n, total: items.length, title: i.title, freed: res.totalFreed + res.movedToTrash, done: true });
   }
   return res;
 }
 
 function showRes(r) {
   const dry = !!r.dryRun;
+  const moved = r.movedToTrash || 0;
   $('result-title').textContent = dry ? 'ПРОВЕРКА ЗАВЕРШЕНА' : 'ГОТОВО!';
-  $('result-subtitle').textContent = dry ? 'Вот сколько места я мог бы освободить' : 'Ваш компьютер стал чище';
-  $('result-amount-label').textContent = dry ? 'можно освободить' : 'освобождено';
-  $('result-gb').textContent = bytesToGB(r.totalFreed);
-  $('res-internet').textContent = formatBytes(r.internet);
-  $('res-programs').textContent = formatBytes(r.programs);
-  $('res-trash').textContent = r.skipped && r.skipped.recycle ? 'не трогал' : formatBytes(r.recycle);
-  $('res-downloads').textContent = formatBytes(r.downloads);
-  $('res-other').textContent = formatBytes(r.other);
+  $('result-subtitle').textContent = dry ? 'Вот сколько я мог бы убрать' : 'Ваш компьютер стал чище';
+  $('result-amount-label').textContent = dry ? 'можно убрать' : moved ? 'убрано' : 'освобождено';
+  $('result-gb').textContent = bytesToGB(r.totalFreed + moved);
+
+  $('result-summary').innerHTML = r.items.map((i) => {
+    const value = i.skipped ? 'не трогал' : i.moved ? `${formatBytes(i.moved)} → в Корзину` : formatBytes(i.freed);
+    return `<div class="summary-row"><span>${escHtml(i.icon || '')} ${escHtml(i.title)}</span><span>${value}</span></div>`;
+  }).join('');
 
   const notes = [];
+  const skipped = r.items.filter((i) => i.skipped).map((i) => i.title);
   if (dry) notes.push('Это был режим проверки — я ничего не удалил. Выключить его можно в настройках ⚙.');
   else {
     if (r.failedFiles > 0) notes.push('Часть файлов сейчас заняты программами — их я пропустил, это нормально.');
-    if (r.skipped && r.skipped.browsers && r.skipped.browsers.length) notes.push('Браузер не чистил — он был открыт.');
-    if (r.movedToTrash > 0) notes.push(`Старые установщики (${formatBytes(r.movedToTrash)}) перенёс в Корзину — если что, их можно вернуть.`);
+    if (skipped.length) notes.push(`${skipped.join(', ')} не трогал — ${skipped.length > 1 ? 'они были открыты' : 'программа была открыта'}.`);
+    if (moved > 0) notes.push(`Старые установщики (${formatBytes(moved)}) перенёс в Корзину — если что, их можно вернуть. Место освободится, когда очистите Корзину.`);
     if (!notes.length) notes.push('Очистка завершена. Ваш компьютер стал чище!');
   }
   $('result-note').textContent = notes.join(' ');
@@ -272,7 +342,12 @@ function showRes(r) {
 async function finishCleaning() {
   state.navStack = []; showScreen('screen-main');
   if (isElectron) await scanTrash();
-  else { state.scanResults = { ...DEMO_SCAN, internet: { size: 0 }, programs: { size: 0 }, downloads: { size: 0 }, other: { size: 0 }, total: DEMO_SCAN.recycle.size }; updateMainScreen(); }
+  else {
+    state.scanResults = demoScan(DEMO_ITEMS.filter((i) => i.id === 'recycle'));
+    state.selected = new Set();
+    $('scan-details').classList.add('hidden');
+    updateMainScreen();
+  }
 }
 
 // ===== Автозагрузка =====
