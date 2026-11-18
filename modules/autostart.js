@@ -24,17 +24,34 @@ function loadDatabase() {
  * По записи Win32_StartupCommand определить, где лежит её флаг в StartupApproved.
  * Возвращает { hive, sub, valueName } или null, если запись нельзя переключать.
  */
-function approvedKeyFor(entry) {
+/**
+ * Для записи из папки «Автозагрузка» найти настоящее имя файла.
+ * Флаг в StartupApproved\StartupFolder хранится ровно под именем файла (с расширением),
+ * а Windows отдаёт имя по-разному: то без «.lnk», то с ним, а у ярлыков с двойным
+ * расширением («X.lnk.lnk») — без последнего. Поэтому сверяемся со списком файлов в папке.
+ */
+function resolveStartupFile(name, command, files) {
+  const list = (files || []).filter((f) => f && f.toLowerCase() !== 'desktop.ini');
+  const find = (cand) => list.find((f) => f.toLowerCase() === cand.toLowerCase());
+  const cmd = (command || '').trim();
+  const candidates = [`${name}.lnk`, name];
+  if (cmd && !cmd.includes('\\')) candidates.push(cmd);
+  for (const c of candidates) { const f = find(c); if (f) return f; }
+  const pref = list.find((f) => f.toLowerCase().startsWith(name.toLowerCase() + '.'));
+  if (pref) return pref;
+  // Список файлов недоступен — угадываем, как раньше
+  if (/\.(lnk|exe|bat|cmd|url)$/i.test(name)) return name;
+  if (/\.(lnk|exe|bat|cmd|url)$/i.test(cmd) && !cmd.includes('\\')) return cmd;
+  return `${name}.lnk`;
+}
+
+function approvedKeyFor(entry, startupFiles = {}) {
   const loc = (entry.location || '').toUpperCase();
   if (loc.includes('RUNONCE')) return null;
   if (loc === 'STARTUP' || loc === 'COMMON STARTUP') {
-    const cmd = (entry.command || '').trim();
-    const name = (entry.name || '').trim();
-    let valueName;
-    if (/\.(lnk|exe|bat|cmd|url)$/i.test(name)) valueName = name; // Windows часто отдаёт имя уже с .lnk
-    else if (/\.(lnk|exe|bat|cmd|url)$/i.test(cmd) && !cmd.includes('\\')) valueName = cmd;
-    else valueName = `${name}.lnk`;
-    return { hive: loc === 'STARTUP' ? 'HKCU' : 'HKLM', sub: 'StartupFolder', valueName };
+    const isUser = loc === 'STARTUP';
+    const valueName = resolveStartupFile((entry.name || '').trim(), entry.command, isUser ? startupFiles.user : startupFiles.common);
+    return { hive: isUser ? 'HKCU' : 'HKLM', sub: 'StartupFolder', valueName };
   }
   const sub = loc.includes('WOW6432NODE') ? 'Run32' : 'Run';
   if (loc.startsWith('HKLM')) return { hive: 'HKLM', sub, valueName: entry.name };
@@ -86,7 +103,12 @@ foreach ($hive in 'HKCU','HKLM') {
     $approved[$hive + '\\' + $sub] = $vals
   }
 }
-@{ entries = $entries; approved = $approved } | ConvertTo-Json -Depth 5 -Compress
+function Get-StartupFiles($folder) {
+  $p = [Environment]::GetFolderPath($folder)
+  if ($p -and (Test-Path -LiteralPath $p)) { @(Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) } else { @() }
+}
+$startup = @{ user = @(Get-StartupFiles 'Startup'); common = @(Get-StartupFiles 'CommonStartup') }
+@{ entries = $entries; approved = $approved; startup = $startup } | ConvertTo-Json -Depth 5 -Compress
 `;
 
 const WRITE_SCRIPT = `
@@ -124,11 +146,13 @@ const LABELS = { green: 'Нужна', yellow: 'Можно откл.', red: 'Лу
 function buildList(raw, database, username) {
   const entries = Array.isArray(raw.entries) ? raw.entries : raw.entries ? [raw.entries] : [];
   const approved = raw.approved || {};
+  const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const startupFiles = { user: arr(raw.startup && raw.startup.user), common: arr(raw.startup && raw.startup.common) };
   const list = [], seen = new Set();
   for (const e of entries) {
     if (!e || !e.name) continue;
     if (!isForCurrentUser(e, username)) continue;
-    const key = approvedKeyFor(e);
+    const key = approvedKeyFor(e, startupFiles);
     if (!key) continue;
     const id = `${key.hive}\\${key.sub}\\${key.valueName}`.toLowerCase();
     if (seen.has(id)) continue;
@@ -188,4 +212,4 @@ async function setEnabled(id, enabled) {
   return { ok, cancelled };
 }
 
-module.exports = { getAutostart, setEnabled, displayName, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
+module.exports = { getAutostart, setEnabled, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };

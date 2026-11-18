@@ -1,6 +1,6 @@
 {
   "name": "rashlamitel-pc",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Расхламитель ПК — программа для очистки компьютера от мусорных файлов",
   "main": "main.js",
   "author": "EvolveCode <hello@evolvecode.ru>",
@@ -37,7 +37,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "shortcutName": "Расхламитель ПК"
     }
   }

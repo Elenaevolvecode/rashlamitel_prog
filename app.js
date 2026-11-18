@@ -7,7 +7,7 @@ const isElectron = !!api;
 const GB = 1073741824;
 
 const state = {
-  navStack: [], currentScreen: 'screen-onboarding1',
+  navStack: [], currentScreen: null,
   settings: { onboardingDone: false, dryRun: true },
   scanResults: null, scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, progScreen: null,
@@ -136,8 +136,9 @@ function updateMainScreen() {
   const warm = 'linear-gradient(90deg,var(--accent-amber),#e05a15)';
   if (gb > 3) { t.textContent = `Накопилось ${gb} ГБ мусора — пора почистить!`; f.style.width = Math.min(gb / 5 * 100, 100) + '%'; f.style.background = warm; }
   else if (gb > 0.5) { t.textContent = 'Есть что почистить!'; f.style.width = Math.max(gb / 5 * 100, 15) + '%'; f.style.background = warm; }
-  else if (bytes > 0) { t.textContent = 'Мусора немного, но почистить можно'; f.style.width = '12%'; f.style.background = '#1D8A40'; }
-  else { t.textContent = 'Компьютер чистый — всё в порядке!'; f.style.width = '5%'; f.style.background = '#1D8A40'; }
+  // Пару десятков мегабайт служебных файлов Windows создаёт постоянно — это не повод тревожить
+  else if (bytes >= 50 * 1048576) { t.textContent = 'Мусора немного, но почистить можно'; f.style.width = '12%'; f.style.background = '#1D8A40'; }
+  else { t.textContent = 'Компьютер чистый — мусора почти нет!'; f.style.width = '5%'; f.style.background = '#1D8A40'; }
   a.textContent = (bytes > 0 && gb === 0 ? formatBytes(bytes) : gb + ' ГБ');
 }
 

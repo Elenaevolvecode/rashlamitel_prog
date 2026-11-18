@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { displayName, approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
+const { displayName, resolveStartupFile, approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
 const { classify, parseUninstall, buildList: buildPrograms } = require('../modules/programs');
 
 test('автозагрузка: правильный раздел StartupApproved', () => {
@@ -75,4 +75,31 @@ test('автозагрузка: имена без .lnk и хвостов _disabl
 test('программы: Расхламитель не показывает сам себя', () => {
   const list = buildPrograms([{ name: 'Расхламитель ПК 0.9.1', sizeKb: 1 }, { name: 'Telegram Desktop', sizeKb: 1 }]);
   assert.deepStrictEqual(list.map((p) => p.name), ['Telegram Desktop']);
+});
+
+test('автозагрузка: имя ярлыка берётся из настоящих файлов папки', () => {
+  // Двойное расширение: Windows отдаёт «X.lnk», а файл — «X.lnk.lnk»
+  assert.strictEqual(resolveStartupFile('Voice.ai - Voice Changer.lnk', 'C:\\v\\voice.exe', ['desktop.ini', 'Voice.ai - Voice Changer.lnk.lnk']), 'Voice.ai - Voice Changer.lnk.lnk');
+  // Обычный ярлык: имя без расширения
+  assert.strictEqual(resolveStartupFile('Zoom', 'C:\\z\\zoom.exe', ['Zoom.lnk']), 'Zoom.lnk');
+  // Имя уже с расширением и такой файл есть
+  assert.strictEqual(resolveStartupFile('Tool.lnk', 'C:\\t.exe', ['Tool.lnk']), 'Tool.lnk');
+  // Не .lnk, а, например, .bat
+  assert.strictEqual(resolveStartupFile('run', 'C:\\r.bat', ['run.bat']), 'run.bat');
+  // Регистр букв не важен, возвращаем как в папке
+  assert.strictEqual(resolveStartupFile('zoom', '', ['Zoom.LNK']), 'Zoom.LNK');
+  // Списка нет — старое угадывание
+  assert.strictEqual(resolveStartupFile('Zoom', 'C:\\z.exe', []), 'Zoom.lnk');
+});
+
+test('автозагрузка: buildList использует список файлов папки «Автозагрузка»', () => {
+  const raw = {
+    entries: { name: 'Voice.ai - Voice Changer.lnk', command: 'C:\\v\\voice.exe', location: 'Startup', user: 'PC\\elena' },
+    approved: { 'HKCU\\StartupFolder': { 'Voice.ai - Voice Changer.lnk.lnk': 3 } },
+    startup: { user: ['Voice.ai - Voice Changer.lnk.lnk'], common: [] },
+  };
+  const list = buildList(raw, { programs: [] }, 'elena');
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].enabled, false, 'видит, что в Диспетчере задач он отключён');
+  assert.strictEqual(list[0].name, 'Voice.ai - Voice Changer');
 });
