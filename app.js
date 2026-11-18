@@ -8,7 +8,7 @@ const GB = 1073741824;
 
 const state = {
   navStack: [], currentScreen: null,
-  settings: { onboardingDone: false, dryRun: true },
+  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30, cleanChoices: {} },
   scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, progScreen: null,
 };
@@ -61,7 +61,7 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
   state.currentScreen = id;
-  if (id === 'screen-settings') $('setting-dryrun').checked = !!state.settings.dryRun;
+  if (id === 'screen-settings') { $('setting-dryrun').checked = !!state.settings.dryRun; updateReminderUI(); }
 }
 function goBack() {
   if (state.navStack.length) {
@@ -95,6 +95,38 @@ async function toggleDryRun(input) {
   updateDryRunBanner();
   showToast(input.checked ? 'Режим проверки включён: ничего не удаляю, только показываю' : 'Режим проверки выключен: теперь буду удалять по-настоящему');
 }
+// ===== Напоминания =====
+const FREQ = { 7: 'Раз в неделю', 14: 'Раз в две недели', 30: 'Раз в месяц' };
+function reminderDays() { return FREQ[state.settings.reminderDays] ? Number(state.settings.reminderDays) : 30; }
+function updateReminderUI() {
+  const on = state.settings.reminderEnabled !== false;
+  $('setting-reminder').checked = on;
+  $('setting-reminder-days').value = String(reminderDays());
+  $('setting-reminder-days').disabled = !on;
+  $('reminder-desc').textContent = on
+    ? `${FREQ[reminderDays()]} тихо проверю компьютер. Если мусора больше 1 ГБ — покажу уведомление. Сам ничего не удаляю.`
+    : 'Напоминания выключены. Включите, и я буду сам подсказывать, когда пора почистить.';
+}
+async function applyReminder(okText) {
+  updateReminderUI();
+  const ok = isElectron ? await api.syncReminder() : true;
+  showToast(ok ? okText : 'Не получилось настроить напоминание. Попробуйте ещё раз');
+}
+async function toggleReminder(input) {
+  await setSetting('reminderEnabled', input.checked);
+  await applyReminder(input.checked ? `Буду напоминать: ${FREQ[reminderDays()].toLowerCase()}` : 'Напоминания выключены');
+}
+async function changeReminderDays(sel) {
+  await setSetting('reminderDays', Number(sel.value));
+  await applyReminder(`Буду напоминать: ${FREQ[reminderDays()].toLowerCase()}`);
+}
+async function testReminder() {
+  if (!isElectron) { showToast('В программе здесь появится уведомление Windows в углу экрана'); return; }
+  showToast('Ищу мусор, чтобы показать уведомление…');
+  const ok = await api.testReminder();
+  if (!ok) showToast('Windows не показала уведомление. Проверьте, что уведомления включены: Параметры → Система → Уведомления');
+}
+
 async function completeOnboarding() {
   await setSetting('onboardingDone', true);
   state.navStack = []; showScreen('screen-main');
@@ -524,9 +556,11 @@ async function init() {
     try { const v = await api.getVersion(); document.querySelectorAll('.app-version').forEach((el) => { el.textContent = v; }); } catch {}
   }
   updateDryRunBanner();
+  if (isElectron) api.onOpenPreview(() => openPreview()); // нажали на уведомление, когда программа уже открыта
+  const wantPreview = new URLSearchParams(location.search).get('open') === 'preview'; // открыли из уведомления
   if (state.settings.onboardingDone) {
     state.navStack = []; showScreen('screen-main');
-    scanTrash();
+    if (wantPreview) { await scanTrash(); openPreview(); } else scanTrash();
   } else showScreen('screen-onboarding1');
 }
 document.addEventListener('DOMContentLoaded', init);

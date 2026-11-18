@@ -1,11 +1,17 @@
-const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, Notification } = require('electron');
 const path = require('path');
 const cleaner = require('./modules/cleaner');
 const autostart = require('./modules/autostart');
 const programs = require('./modules/programs');
 const { createStore } = require('./modules/store');
+const reminder = require('./modules/reminder');
+
+const APP_ID = 'ru.rashlamitel.pc'; // совпадает с appId сборки — нужно Windows для уведомлений
+// Запуск из Планировщика: без окна, только проверить мусор и при необходимости напомнить
+const REMIND_MODE = process.argv.includes('--remind');
 
 let mainWindow, store, lastScan = null, cleaning = false;
+let lastNotification = null; // держим ссылку, иначе нажатие на уведомление может потеряться
 
 // Окно 600×700, но на невысоких экранах ноутбуков (1366×768) уменьшаем высоту,
 // чтобы окно целиком помещалось над панелью задач вместе с заголовком.
@@ -37,7 +43,7 @@ function fitToWorkArea(win) {
   } catch (e) { console.error('fitToWorkArea', e); }
 }
 
-function createWindow() {
+function createWindow({ openPreview = false } = {}) {
   mainWindow = new BrowserWindow({
     width: WIN_W, height: fitHeight(), useContentSize: true, center: true,
     resizable: false, maximizable: false, fullscreenable: false,
@@ -50,7 +56,7 @@ function createWindow() {
     backgroundColor: '#FFFFFF',
   });
   fitToWorkArea(mainWindow);
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('index.html', openPreview ? { query: { open: 'preview' } } : {});
   mainWindow.setMenuBarVisibility(false);
   // Ссылки (сайт, почта) открываем в браузере, а не внутри программы
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -67,6 +73,40 @@ function send(channel, data) {
 // --- Настройки ---
 ipcMain.handle('store:getAll', () => store.getAll());
 ipcMain.handle('store:set', (e, key, value) => store.set(key, value));
+
+// --- Напоминания ---
+/** Создать/обновить задание в Планировщике по текущим настройкам. В режиме разработки задание не трогаем. */
+async function syncReminder() {
+  if (!app.isPackaged) return 'dev';
+  try {
+    return await reminder.syncTask({ enabled: store.get('reminderEnabled'), days: store.get('reminderDays'), exe: process.execPath });
+  } catch (e) { console.error('syncReminder', e); return false; }
+}
+ipcMain.handle('reminder:sync', () => syncReminder());
+
+/** Поискать мусор и показать уведомление. force — показать даже при малом количестве (для проверки из настроек). */
+async function remindCheck({ force = false } = {}) {
+  let scan;
+  try { scan = await cleaner.scan({ deep: false }); } catch (e) { console.error(e); return false; }
+  const bytes = reminder.reminderBytes(scan.items, store.get('cleanChoices') || {});
+  if (!reminder.shouldRemind(bytes) && !force) return false;
+  if (!Notification.isSupported()) return false;
+  const body = reminder.shouldRemind(bytes)
+    ? `Накопилось ${reminder.gbText(bytes)} мусора. Нажмите, чтобы посмотреть, что можно убрать.`
+    : `Сейчас мусора немного — ${reminder.gbText(bytes)}. Так будет выглядеть напоминание, когда его станет больше 1 ГБ.`;
+  const n = new Notification({ title: 'Расхламитель ПК', body, icon: path.join(__dirname, 'assets', 'icon.png') });
+  n.on('click', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      send('app:open-preview');
+    } else createWindow({ openPreview: true });
+  });
+  lastNotification = n;
+  n.show();
+  return true;
+}
+ipcMain.handle('reminder:test', () => remindCheck({ force: true }));
 
 // --- Очистка ---
 const ids = (v) => (Array.isArray(v) ? v.map(String) : []);
@@ -134,16 +174,30 @@ ipcMain.handle('app:openExternal', (e, url) => {
 });
 ipcMain.handle('app:version', () => app.getVersion());
 
-// Не даём запустить вторую копию программы
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+
+// Не даём запустить вторую копию программы.
+// Если программа уже открыта, запуск-напоминание просто тихо завершается.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
+    if (mainWindow && !mainWindow.isDestroyed()) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
+    else createWindow(); // человек открыл программу, пока висело напоминание
   });
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     store = createStore(app.getPath('userData'));
+    if (REMIND_MODE) {
+      // Напоминания выключили, а задание почему-то осталось — убираем его и выходим
+      if (!store.get('reminderEnabled')) { await syncReminder(); app.quit(); return; }
+      const shown = await remindCheck();
+      if (!shown) { app.quit(); return; }
+      // Ждём нажатия на уведомление не дольше часа, потом тихо выходим
+      setTimeout(() => { if (!mainWindow || mainWindow.isDestroyed()) app.quit(); }, 60 * 60000);
+      return;
+    }
     createWindow();
+    syncReminder(); // срок напоминания отсчитывается от последнего запуска
   });
   app.on('window-all-closed', () => app.quit());
 }

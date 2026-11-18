@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('rashlamitel', {
   // Программы
   getPrograms: () => ipcRenderer.invoke('programs:get'),
   uninstallProgram: (id) => ipcRenderer.invoke('programs:uninstall', id),
+  // Напоминания
+  syncReminder: () => ipcRenderer.invoke('reminder:sync'),
+  testReminder: () => ipcRenderer.invoke('reminder:test'),
+  onOpenPreview: (cb) => { ipcRenderer.removeAllListeners('app:open-preview'); ipcRenderer.on('app:open-preview', () => cb()); },
   // Прочее
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
   getVersion: () => ipcRenderer.invoke('app:version'),

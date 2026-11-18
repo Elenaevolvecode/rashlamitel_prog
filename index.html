@@ -171,6 +171,9 @@
   <div class="screen hidden" id="screen-settings">
     <div class="settings-content"><button class="back-link" onclick="goBack()">← Назад</button><h2 class="settings-title">Настройки</h2>
       <div class="settings-card"><div class="settings-row"><div class="settings-col"><span>Режим проверки</span><small>Показываю, что удалил бы, но ничего не удаляю. Удобно, чтобы сначала посмотреть.</small></div><label class="toggle"><input type="checkbox" id="setting-dryrun" onchange="toggleDryRun(this)"><span class="toggle-slider"></span></label></div></div>
+      <div class="settings-card"><div class="settings-row"><div class="settings-col"><span>Напоминать о чистке</span><small id="reminder-desc">Раз в месяц тихо проверю компьютер. Если мусора больше 1 ГБ — покажу уведомление. Сам ничего не удаляю.</small></div><label class="toggle"><input type="checkbox" id="setting-reminder" onchange="toggleReminder(this)"><span class="toggle-slider"></span></label></div>
+        <div class="settings-row settings-subrow" id="reminder-freq-row"><span>Как часто</span><select class="settings-select" id="setting-reminder-days" onchange="changeReminderDays(this)"><option value="7">Раз в неделю</option><option value="14">Раз в две недели</option><option value="30">Раз в месяц</option></select></div>
+        <div class="settings-row settings-subrow"><a href="#" class="settings-link" onclick="testReminder();return false">Показать, как выглядит напоминание</a></div></div>
       <div class="settings-card clickable" onclick="showScreen('screen-about')"><div class="settings-row"><span>О программе</span><span class="settings-arrow">→</span></div></div>
     </div>
   </div>

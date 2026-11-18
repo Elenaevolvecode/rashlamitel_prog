@@ -201,3 +201,8 @@ body{font-family:'Raleway',sans-serif;font-size:14px;font-weight:500;font-varian
 .preview-total{text-align:center;font-size:15px}
 .preview-total b{color:var(--btn-green-mid);font-weight:700}
 .btn-primary:disabled{opacity:.5;cursor:default}
+/* === Этап 3: напоминания === */
+.settings-subrow{border-top:1px solid var(--border-brass);padding-top:10px;padding-bottom:10px}
+.settings-select{font-family:'Raleway',sans-serif;font-size:14px;font-weight:500;color:var(--text-primary);padding:6px 10px;border:1px solid rgba(196,162,101,0.55);border-radius:8px;background:#fff;cursor:pointer}
+.settings-select:disabled{opacity:.5;cursor:default}
+.settings-link{color:var(--accent-teal);font-size:14px;font-weight:600}

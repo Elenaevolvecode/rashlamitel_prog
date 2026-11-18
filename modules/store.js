@@ -15,6 +15,9 @@ const DEFAULTS = {
   // Выбор пользователя на экране «Вот что я нашёл»: { id: true/false }, если отличается от обычного.
   // Корзину и глубокую очистку не запоминаем — у них галочка всегда снята.
   cleanChoices: {},
+  // Напоминания об очистке через Планировщик Windows: раз в reminderDays дней (7 / 14 / 30)
+  reminderEnabled: true,
+  reminderDays: 30,
 };
 
 function createStore(dir) {
