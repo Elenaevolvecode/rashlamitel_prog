@@ -104,7 +104,7 @@ function updateReminderUI() {
   $('setting-reminder-days').value = String(reminderDays());
   $('setting-reminder-days').disabled = !on;
   $('reminder-desc').textContent = on
-    ? `${FREQ[reminderDays()]} тихо проверю компьютер. Если мусора больше 1 ГБ — покажу уведомление. Сам ничего не удаляю.`
+    ? `${FREQ[reminderDays()]} тихо проверю компьютер. Если мусора больше 1 ГБ — покажу небольшое окошко в углу экрана. Сам ничего не удаляю.`
     : 'Напоминания выключены. Включите, и я буду сам подсказывать, когда пора почистить.';
 }
 async function applyReminder(okText) {
@@ -121,10 +121,10 @@ async function changeReminderDays(sel) {
   await applyReminder(`Буду напоминать: ${FREQ[reminderDays()].toLowerCase()}`);
 }
 async function testReminder() {
-  if (!isElectron) { showToast('В программе здесь появится уведомление Windows в углу экрана'); return; }
-  showToast('Ищу мусор, чтобы показать уведомление…');
+  if (!isElectron) { showToast('В программе здесь появится окошко в правом нижнем углу экрана'); return; }
+  showToast('Ищу мусор, чтобы показать окошко…');
   const ok = await api.testReminder();
-  if (!ok) showToast('Windows не показала уведомление. Проверьте, что уведомления включены: Параметры → Система → Уведомления');
+  if (!ok) showToast('Не получилось показать окошко. Попробуйте ещё раз');
 }
 
 async function completeOnboarding() {
@@ -556,8 +556,15 @@ async function init() {
     try { const v = await api.getVersion(); document.querySelectorAll('.app-version').forEach((el) => { el.textContent = v; }); } catch {}
   }
   updateDryRunBanner();
-  if (isElectron) api.onOpenPreview(() => openPreview()); // нажали на уведомление, когда программа уже открыта
-  const wantPreview = new URLSearchParams(location.search).get('open') === 'preview'; // открыли из уведомления
+  if (isElectron) {
+    api.onOpenPreview(() => openPreview()); // нажали «Посмотреть» в окошке-напоминании, когда программа уже открыта
+    // В окошке нажали «Больше не напоминать» — обновить настройки на экране
+    api.onSettingsChanged(async () => {
+      try { state.settings = { ...state.settings, ...(await api.getSettings()) }; } catch {}
+      if (state.currentScreen === 'screen-settings') updateReminderUI();
+    });
+  }
+  const wantPreview = new URLSearchParams(location.search).get('open') === 'preview'; // открыли из окошка-напоминания
   if (state.settings.onboardingDone) {
     state.navStack = []; showScreen('screen-main');
     if (wantPreview) { await scanTrash(); openPreview(); } else scanTrash();

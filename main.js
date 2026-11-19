@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
 const cleaner = require('./modules/cleaner');
 const autostart = require('./modules/autostart');
@@ -11,7 +11,6 @@ const APP_ID = 'ru.rashlamitel.pc'; // совпадает с appId сборки 
 const REMIND_MODE = process.argv.includes('--remind');
 
 let mainWindow, store, lastScan = null, cleaning = false;
-let lastNotification = null; // держим ссылку, иначе нажатие на уведомление может потеряться
 
 // Окно 600×700, но на невысоких экранах ноутбуков (1366×768) уменьшаем высоту,
 // чтобы окно целиком помещалось над панелью задач вместе с заголовком.
@@ -84,26 +83,61 @@ async function syncReminder() {
 }
 ipcMain.handle('reminder:sync', () => syncReminder());
 
-/** Поискать мусор и показать уведомление. force — показать даже при малом количестве (для проверки из настроек). */
+/**
+ * Своё окошко-напоминание в правом нижнем углу.
+ * Не уведомление Windows: те многие отключают целиком, а включать их за человека нельзя —
+ * на него посыплются уведомления всех программ. Окошко работает при любых настройках Windows.
+ */
+let reminderWindow = null;
+const REM_W = 440, REM_H = 178;
+
+function showReminderWindow(gbText, sample) {
+  if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+  const wa = screen.getPrimaryDisplay().workArea;
+  reminderWindow = new BrowserWindow({
+    width: REM_W, height: REM_H, useContentSize: true,
+    x: wa.x + wa.width - REM_W - 16, y: wa.y + wa.height - REM_H - 16,
+    frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Расхламитель ПК',
+    icon: path.join(__dirname, 'assets', 'icon.png'), backgroundColor: '#FFFFFF',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true, sandbox: true },
+  });
+  reminderWindow.loadFile('reminder.html', { query: { gb: gbText, sample: sample ? '1' : '0' } });
+  // Показываем, не перехватывая клавиатуру у того, чем человек сейчас занят
+  reminderWindow.once('ready-to-show', () => reminderWindow.showInactive());
+  reminderWindow.on('closed', () => {
+    reminderWindow = null;
+    // Запуск-напоминание без главного окна: окошко закрыли — программа тоже закрывается
+    if (!mainWindow || mainWindow.isDestroyed()) app.quit();
+  });
+}
+
+function openMainWithPreview() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show(); mainWindow.focus();
+    send('app:open-preview');
+  } else createWindow({ openPreview: true });
+}
+
+ipcMain.handle('reminder:action', async (e, action) => {
+  if (action === 'open') openMainWithPreview(); // главное окно создаём до закрытия окошка, чтобы программа не закрылась
+  if (action === 'never') {
+    store.set('reminderEnabled', false);
+    await syncReminder();
+    send('app:settings-changed');
+  }
+  if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+});
+
+/** Поискать мусор и показать окошко. force — показать даже при малом количестве (проверка из настроек). */
 async function remindCheck({ force = false } = {}) {
   let scan;
   try { scan = await cleaner.scan({ deep: false }); } catch (e) { console.error(e); return false; }
   const bytes = reminder.reminderBytes(scan.items, store.get('cleanChoices') || {});
-  if (!reminder.shouldRemind(bytes) && !force) return false;
-  if (!Notification.isSupported()) return false;
-  const body = reminder.shouldRemind(bytes)
-    ? `Накопилось ${reminder.gbText(bytes)} мусора. Нажмите, чтобы посмотреть, что можно убрать.`
-    : `Сейчас мусора немного — ${reminder.gbText(bytes)}. Так будет выглядеть напоминание, когда его станет больше 1 ГБ.`;
-  const n = new Notification({ title: 'Расхламитель ПК', body, icon: path.join(__dirname, 'assets', 'icon.png') });
-  n.on('click', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-      send('app:open-preview');
-    } else createWindow({ openPreview: true });
-  });
-  lastNotification = n;
-  n.show();
+  const enough = reminder.shouldRemind(bytes);
+  if (!enough && !force) return false;
+  showReminderWindow(reminder.gbText(bytes), !enough);
   return true;
 }
 ipcMain.handle('reminder:test', () => remindCheck({ force: true }));
@@ -192,8 +226,8 @@ if (!app.requestSingleInstanceLock()) {
       if (!store.get('reminderEnabled')) { await syncReminder(); app.quit(); return; }
       const shown = await remindCheck();
       if (!shown) { app.quit(); return; }
-      // Ждём нажатия на уведомление не дольше часа, потом тихо выходим
-      setTimeout(() => { if (!mainWindow || mainWindow.isDestroyed()) app.quit(); }, 60 * 60000);
+      // Окошко ждёт ответа (человек мог отойти от компьютера), но не дольше 12 часов
+      setTimeout(() => { if (!mainWindow || mainWindow.isDestroyed()) app.quit(); }, 12 * 60 * 60000);
       return;
     }
     createWindow();

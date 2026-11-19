@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('rashlamitel', {
   // Напоминания
   syncReminder: () => ipcRenderer.invoke('reminder:sync'),
   testReminder: () => ipcRenderer.invoke('reminder:test'),
+  reminderAction: (action) => ipcRenderer.invoke('reminder:action', action),
+  onSettingsChanged: (cb) => { ipcRenderer.removeAllListeners('app:settings-changed'); ipcRenderer.on('app:settings-changed', () => cb()); },
   onOpenPreview: (cb) => { ipcRenderer.removeAllListeners('app:open-preview'); ipcRenderer.on('app:open-preview', () => cb()); },
   // Прочее
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),

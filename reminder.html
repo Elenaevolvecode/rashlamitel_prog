@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Расхламитель ПК — напоминание</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<style>
+  :root { --text: #1E1B16; --sub: rgba(30,27,22,0.82); --teal: #238F86; --brass: rgba(196,162,101,0.45); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #fff; }
+  body { font-family: 'Raleway', sans-serif; font-weight: 500; font-variant-numeric: lining-nums; color: var(--text);
+    border: 1px solid var(--brass); border-radius: 0; overflow: hidden; user-select: none; }
+  .wrap { display: flex; gap: 12px; padding: 14px 16px 12px; height: 100%; }
+  .robot { width: 70px; height: 120px; object-fit: contain; flex-shrink: 0; align-self: center; }
+  .body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .head { display: flex; align-items: center; justify-content: space-between; }
+  .title { font-size: 13px; font-weight: 700; color: var(--sub); }
+  .x { background: none; border: none; font-size: 18px; line-height: 1; color: var(--sub); cursor: pointer; padding: 0 2px; }
+  .text { font-size: 15px; line-height: 1.35; margin: 6px 0 10px; }
+  .text b { font-weight: 700; }
+  .btns { display: flex; gap: 8px; align-items: center; margin-top: auto; }
+  .btns button { white-space: nowrap; }
+  .go { background: linear-gradient(145deg,#2EBD5A,#1D8A40,#22C55E); color: #fff; border: none; border-radius: 9px;
+    padding: 8px 14px; font: 700 14px 'Raleway', sans-serif; cursor: pointer; }
+  .go:hover { filter: brightness(1.05); }
+  .later { background: none; border: 1px solid var(--brass); border-radius: 9px; padding: 7px 12px;
+    font: 600 14px 'Raleway', sans-serif; color: var(--text); cursor: pointer; }
+  .never { align-self: flex-start; margin-top: 8px; background: none; border: none; color: var(--teal);
+    font: 600 13px 'Raleway', sans-serif; text-decoration: underline; cursor: pointer; padding: 0; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="robot" src="assets/robot_explains.png" alt="">
+    <div class="body">
+      <div class="head"><span class="title">Расхламитель ПК</span><button class="x" id="x" title="Закрыть">×</button></div>
+      <p class="text" id="text"></p>
+      <div class="btns">
+        <button class="go" id="go">Посмотреть</button>
+        <button class="later" id="later">Не сейчас</button>
+      </div>
+      <button class="never" id="never">Больше не напоминать</button>
+    </div>
+  </div>
+  <script src="reminder.js"></script>
+</body>
+</html>
