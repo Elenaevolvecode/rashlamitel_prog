@@ -21,14 +21,14 @@ test('первое напоминание — через N дней в полд�
   assert.strictEqual(r.syncArgs({ enabled: true, days: 7, exe: 'C:\\a.exe', now }).at, '2026-11-25T12:00:00');
 });
 
-test('считаем мусор как на главном экране: всё найденное, без Корзины и глубокой очистки', () => {
+test('считаем мусор как на главном экране: всё найденное, включая Корзину', () => {
   const items = [
     { id: 'chrome', size: 2 * GB, defaultOn: true },
     { id: 'telegram', size: 1 * GB, defaultOn: true },
     { id: 'recycle', size: 5 * GB, defaultOn: false },
     { id: 'deep', size: 0, defaultOn: false, sizeUnknown: true },
   ];
-  assert.strictEqual(r.reminderBytes(items), 3 * GB);
+  assert.strictEqual(r.reminderBytes(items), 8 * GB);
 });
 
 test('порог 1 ГБ и текст', () => {

@@ -23,9 +23,9 @@ function firstRun(days, now = new Date()) {
   return d;
 }
 
-/** Сколько мусора считать для напоминания: как на главном экране — всё найденное, кроме Корзины и глубокой очистки. */
+/** Сколько мусора считать для напоминания: как на главном экране — всё найденное, включая Корзину. */
 function reminderBytes(items) {
-  return items.filter((i) => i.defaultOn && !i.sizeUnknown).reduce((s, i) => s + i.size, 0);
+  return items.filter((i) => !i.sizeUnknown).reduce((s, i) => s + i.size, 0);
 }
 
 function shouldRemind(bytes) { return bytes >= THRESHOLD; }

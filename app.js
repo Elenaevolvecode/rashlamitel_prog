@@ -170,17 +170,20 @@ function demoScan(items = DEMO_ITEMS) { return { items, total: items.reduce((s, 
 
 function scanItems() { return (state.scanResults && state.scanResults.items) || []; }
 /**
- * Сколько всего найдено мусора — столько же «Выбрано» на экране предпросмотра при открытии.
- * Галочки каждый раз стоят одинаково: всё, кроме Корзины и глубокой очистки. Выбор не запоминаем —
- * так проще и понятнее (запоминание пробовали в 0.11–0.13.1 и убрали: путало).
+ * Сколько всего найдено мусора — всё, включая Корзину (у глубокой очистки размер заранее неизвестен).
+ * Галочки каждый раз стоят одинаково: всё, кроме Корзины и глубокой очистки — их человек отмечает сам.
+ * Выбор не запоминаем — так проще (запоминание пробовали в 0.11–0.13.1 и убрали: путало).
  */
-function defaultBytes() { return scanItems().filter((i) => i.defaultOn).reduce((s, i) => s + i.size, 0); }
+function foundBytes() { return scanItems().filter((i) => !i.sizeUnknown).reduce((s, i) => s + i.size, 0); }
 
 async function scanTrash() {
   if (state.scanning) return;
   state.scanning = true;
   $('main-mascot-text').textContent = 'Ищу мусор… Это займёт от 20 секунд до пары минут.';
   $('scan-details').classList.add('hidden');
+  // Пока ищем — не показываем старую цифру
+  $('trash-amount').textContent = '…';
+  $('trash-bar-fill').style.width = '0';
   try {
     if (isElectron) state.scanResults = await api.scan();
     else { await sleep(500); state.scanResults = demoScan(); }
@@ -202,8 +205,7 @@ async function scanTrash() {
 
 function updateMainScreen() {
   const f = $('trash-bar-fill'), a = $('trash-amount'), t = $('main-mascot-text');
-  // Корзину в «мусор» не считаем: это файлы пользователя, чистим только с его согласия
-  const bytes = defaultBytes();
+  const bytes = foundBytes();
   const gb = parseFloat(bytesToGB(bytes));
   const warm = 'linear-gradient(90deg,var(--accent-amber),#e05a15)';
   if (gb > 3) { t.textContent = `Накопилось ${gb} ГБ мусора — пора почистить!`; f.style.width = Math.min(gb / 5 * 100, 100) + '%'; f.style.background = warm; }
