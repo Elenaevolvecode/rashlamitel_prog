@@ -1,14 +1,104 @@
 {
   "_meta": {
-    "version": "1.0",
+    "version": "1.1",
     "description": "База программ автозагрузки для Расхламитель ПК. Категории: green (нужна, не трогать), yellow (можно отключить), red (лучше отключить). Описания на бытовом языке.",
-    "updated": "2026-03-08"
+    "updated": "2026-11-20",
+    "note": "Порядок важен: побеждает первая подходящая запись, поэтому конкретные (обновления, Яндекс Диск) стоят выше общих."
   },
   "programs": [
     {
+      "id": "google_update",
+      "names": [
+        "GoogleUpdateTask",
+        "GoogleUpdater",
+        "Google Update",
+        "GoogleUpdate"
+      ],
+      "process": [
+        "GoogleUpdate.exe",
+        "GoogleUpdater"
+      ],
+      "category": "yellow",
+      "label": "Обновления",
+      "description": "Проверяет обновления Google Chrome и других программ Google. Можно отключить — Chrome обновится сам, когда вы его откроете.",
+      "vendor": "Google"
+    },
+    {
+      "id": "edge_update",
+      "names": [
+        "MicrosoftEdgeUpdate",
+        "Microsoft Edge Update",
+        "EdgeUpdate"
+      ],
+      "process": [
+        "MicrosoftEdgeUpdate.exe"
+      ],
+      "category": "yellow",
+      "label": "Обновления",
+      "description": "Проверяет обновления браузера Edge. Можно отключить — программа обновится сама, когда вы её откроете.",
+      "vendor": "Microsoft"
+    },
+    {
+      "id": "yandex_update",
+      "names": [
+        "Обновление Браузера Яндекс",
+        "Система обновления Браузера Яндекс",
+        "YandexBrowserUpdate",
+        "Yandex Browser Update"
+      ],
+      "process": [
+        "service_update.exe"
+      ],
+      "category": "yellow",
+      "label": "Обновления",
+      "description": "Проверяет обновления Яндекс Браузера. Можно отключить — программа обновится сама, когда вы её откроете.",
+      "vendor": "Яндекс"
+    },
+    {
+      "id": "opera_update",
+      "names": [
+        "Opera scheduled Autoupdate",
+        "Opera GX scheduled Autoupdate",
+        "Opera Autoupdate",
+        "Opera Browser Assistant"
+      ],
+      "process": [
+        "--scheduledautoupdate"
+      ],
+      "category": "yellow",
+      "label": "Обновления",
+      "description": "Проверяет обновления браузера Opera. Можно отключить — программа обновится сама, когда вы её откроете.",
+      "vendor": "Opera"
+    },
+    {
+      "id": "onedrive_update",
+      "names": [
+        "OneDrive Standalone Update",
+        "OneDrive Reporting Task",
+        "OneDrive Per-Machine Standalone Update"
+      ],
+      "process": [
+        "OneDriveStandaloneUpdater.exe"
+      ],
+      "category": "yellow",
+      "label": "Обновления",
+      "description": "Проверяет обновления OneDrive. Можно отключить — программа обновится сама, когда вы её откроете.",
+      "vendor": "Microsoft"
+    },
+    {
       "id": "kaspersky",
-      "names": ["Kaspersky", "KAV", "KIS", "Kaspersky Security", "AVP"],
-      "process": ["avp.exe", "kavtray.exe", "avpui.exe"],
+      "names": [
+        "Kaspersky",
+        "KAV",
+        "KIS",
+        "Kaspersky Security",
+        "AVP"
+      ],
+      "process": [
+        "avp.exe",
+        "kavtray.exe",
+        "avpui.exe"
+      ],
       "category": "green",
       "label": "Антивирус",
       "description": "Защищает компьютер от вирусов. Отключать нельзя",
@@ -16,8 +106,16 @@
     },
     {
       "id": "drweb",
-      "names": ["Dr.Web", "Doctor Web", "SpIDer"],
-      "process": ["dwservice.exe", "spideragent.exe", "dwengine.exe"],
+      "names": [
+        "Dr.Web",
+        "Doctor Web",
+        "SpIDer"
+      ],
+      "process": [
+        "dwservice.exe",
+        "spideragent.exe",
+        "dwengine.exe"
+      ],
       "category": "green",
       "label": "Антивирус",
       "description": "Защищает компьютер от вирусов. Отключать нельзя",
@@ -25,8 +123,16 @@
     },
     {
       "id": "windows_defender",
-      "names": ["Windows Security", "Windows Defender", "Защитник Windows", "SecurityHealth"],
-      "process": ["SecurityHealthSystray.exe", "MsMpEng.exe"],
+      "names": [
+        "Windows Security",
+        "Windows Defender",
+        "Защитник Windows",
+        "SecurityHealth"
+      ],
+      "process": [
+        "SecurityHealthSystray.exe",
+        "MsMpEng.exe"
+      ],
       "category": "green",
       "label": "Встроенный антивирус Windows",
       "description": "Встроенная защита компьютера от вирусов. Отключать не нужно",
@@ -34,8 +140,16 @@
     },
     {
       "id": "nvidia_display",
-      "names": ["NVIDIA", "NVIDIA Display", "NVIDIA GeForce", "NVIDIA Share"],
-      "process": ["nvdisplay.container.exe", "NvTelemetryContainer.exe"],
+      "names": [
+        "NVIDIA",
+        "NVIDIA Display",
+        "NVIDIA GeForce",
+        "NVIDIA Share"
+      ],
+      "process": [
+        "nvdisplay.container.exe",
+        "NvTelemetryContainer.exe"
+      ],
       "category": "green",
       "label": "Драйвер видеокарты",
       "description": "Нужен для изображения на экране. Без него картинка может стать хуже",
@@ -43,8 +157,15 @@
     },
     {
       "id": "amd_radeon",
-      "names": ["AMD Radeon", "AMD Software", "Radeon Settings"],
-      "process": ["RadeonSoftware.exe", "amdow.exe"],
+      "names": [
+        "AMD Radeon",
+        "AMD Software",
+        "Radeon Settings"
+      ],
+      "process": [
+        "RadeonSoftware.exe",
+        "amdow.exe"
+      ],
       "category": "green",
       "label": "Драйвер видеокарты",
       "description": "Нужен для изображения на экране. Без него картинка может стать хуже",
@@ -52,8 +173,15 @@
     },
     {
       "id": "intel_graphics",
-      "names": ["Intel Graphics", "Intel HD", "Intel UHD"],
-      "process": ["igfxTray.exe", "igfxEM.exe"],
+      "names": [
+        "Intel Graphics",
+        "Intel HD",
+        "Intel UHD"
+      ],
+      "process": [
+        "igfxTray.exe",
+        "igfxEM.exe"
+      ],
       "category": "green",
       "label": "Драйвер видеокарты Intel",
       "description": "Управляет встроенной видеокартой. Нужен для нормальной работы экрана",
@@ -61,8 +189,16 @@
     },
     {
       "id": "realtek_audio",
-      "names": ["Realtek Audio", "Realtek HD Audio", "Realtek Audio Console"],
-      "process": ["RtkAudUService64.exe", "RAVCpl64.exe", "RtkNGUI64.exe"],
+      "names": [
+        "Realtek Audio",
+        "Realtek HD Audio",
+        "Realtek Audio Console"
+      ],
+      "process": [
+        "RtkAudUService64.exe",
+        "RAVCpl64.exe",
+        "RtkNGUI64.exe"
+      ],
       "category": "green",
       "label": "Управление звуком",
       "description": "Нужен для работы колонок и наушников. Без него звук может пропасть",
@@ -70,17 +206,58 @@
     },
     {
       "id": "synaptics_touchpad",
-      "names": ["Synaptics", "Synaptics TouchPad", "SynTPEnh"],
-      "process": ["SynTPEnh.exe", "SynTPHelper.exe"],
+      "names": [
+        "Synaptics",
+        "Synaptics TouchPad",
+        "SynTPEnh"
+      ],
+      "process": [
+        "SynTPEnh.exe",
+        "SynTPHelper.exe"
+      ],
       "category": "green",
       "label": "Тачпад ноутбука",
       "description": "Управляет сенсорной панелью ноутбука. Без него тачпад может не работать",
       "vendor": "Synaptics"
     },
     {
+      "id": "yandex_disk",
+      "names": [
+        "Яндекс Диск",
+        "Yandex Disk",
+        "YandexDisk"
+      ],
+      "process": [
+        "YandexDisk2.exe"
+      ],
+      "category": "yellow",
+      "label": "Облачное хранилище Яндекса",
+      "description": "Сохраняет файлы в интернете. Если не пользуетесь — можно отключить",
+      "vendor": "Яндекс"
+    },
+    {
+      "id": "yandex_music_autostart",
+      "names": [
+        "Яндекс Музыка"
+      ],
+      "process": [
+        "Яндекс Музыка.exe"
+      ],
+      "category": "red",
+      "label": "Музыкальный сервис",
+      "description": "Музыка онлайн. Не нужна при включении — откройте через браузер когда захотите",
+      "vendor": "Яндекс"
+    },
+    {
       "id": "yandex_browser",
-      "names": ["Yandex", "Яндекс Браузер", "YandexBrowser"],
-      "process": ["browser.exe"],
+      "names": [
+        "Yandex",
+        "Яндекс Браузер",
+        "YandexBrowser"
+      ],
+      "process": [
+        "browser.exe"
+      ],
       "category": "yellow",
       "label": "Интернет-браузер",
       "description": "Запускается сам при включении компьютера. Можно открыть вручную когда нужно",
@@ -88,8 +265,13 @@
     },
     {
       "id": "chrome",
-      "names": ["Google Chrome", "Chrome"],
-      "process": ["chrome.exe"],
+      "names": [
+        "Google Chrome",
+        "Chrome"
+      ],
+      "process": [
+        "chrome.exe"
+      ],
       "category": "yellow",
       "label": "Интернет-браузер",
       "description": "Запускается сам при включении. Можно открыть вручную когда нужно",
@@ -97,8 +279,13 @@
     },
     {
       "id": "edge",
-      "names": ["Microsoft Edge", "Edge"],
-      "process": ["msedge.exe"],
+      "names": [
+        "Microsoft Edge",
+        "Edge"
+      ],
+      "process": [
+        "msedge.exe"
+      ],
       "category": "yellow",
       "label": "Интернет-браузер Microsoft",
       "description": "Браузер от Microsoft. Запускается сам — можно открыть вручную",
@@ -106,8 +293,13 @@
     },
     {
       "id": "telegram",
-      "names": ["Telegram", "Telegram Desktop"],
-      "process": ["Telegram.exe"],
+      "names": [
+        "Telegram",
+        "Telegram Desktop"
+      ],
+      "process": [
+        "Telegram.exe"
+      ],
       "category": "yellow",
       "label": "Мессенджер",
       "description": "Приложение для общения. Можно открыть вручную когда понадобится",
@@ -115,8 +307,13 @@
     },
     {
       "id": "whatsapp",
-      "names": ["WhatsApp", "WhatsApp Desktop"],
-      "process": ["WhatsApp.exe"],
+      "names": [
+        "WhatsApp",
+        "WhatsApp Desktop"
+      ],
+      "process": [
+        "WhatsApp.exe"
+      ],
       "category": "yellow",
       "label": "Мессенджер",
       "description": "Приложение для общения. Можно открыть вручную когда понадобится",
@@ -124,8 +321,13 @@
     },
     {
       "id": "viber",
-      "names": ["Viber", "Viber Desktop"],
-      "process": ["Viber.exe"],
+      "names": [
+        "Viber",
+        "Viber Desktop"
+      ],
+      "process": [
+        "Viber.exe"
+      ],
       "category": "yellow",
       "label": "Мессенджер",
       "description": "Приложение для звонков и сообщений. Можно открыть когда нужно",
@@ -133,8 +335,15 @@
     },
     {
       "id": "discord",
-      "names": ["Discord", "DiscordPTB", "DiscordCanary"],
-      "process": ["Discord.exe", "Update.exe --processStart Discord.exe"],
+      "names": [
+        "Discord",
+        "DiscordPTB",
+        "DiscordCanary"
+      ],
+      "process": [
+        "Discord.exe",
+        "Update.exe --processStart Discord.exe"
+      ],
       "category": "yellow",
       "label": "Мессенджер для игр",
       "description": "Голосовой чат. Замедляет включение компьютера. Можно открыть вручную",
@@ -142,8 +351,14 @@
     },
     {
       "id": "skype",
-      "names": ["Skype", "Skype for Business"],
-      "process": ["Skype.exe", "SkypeApp.exe"],
+      "names": [
+        "Skype",
+        "Skype for Business"
+      ],
+      "process": [
+        "Skype.exe",
+        "SkypeApp.exe"
+      ],
       "category": "yellow",
       "label": "Видеозвонки",
       "description": "Программа для видеозвонков. Можно открыть когда нужно позвонить",
@@ -151,8 +366,15 @@
     },
     {
       "id": "zoom",
-      "names": ["Zoom", "ZoomOpener", "Zoom Workplace"],
-      "process": ["Zoom.exe", "ZoomOpener.exe"],
+      "names": [
+        "Zoom",
+        "ZoomOpener",
+        "Zoom Workplace"
+      ],
+      "process": [
+        "Zoom.exe",
+        "ZoomOpener.exe"
+      ],
       "category": "yellow",
       "label": "Видеоконференции",
       "description": "Программа для видеозвонков. Можно открыть когда нужно позвонить",
@@ -160,26 +382,27 @@
     },
     {
       "id": "onedrive",
-      "names": ["OneDrive", "Microsoft OneDrive"],
-      "process": ["OneDrive.exe"],
+      "names": [
+        "OneDrive",
+        "Microsoft OneDrive"
+      ],
+      "process": [
+        "OneDrive.exe"
+      ],
       "category": "yellow",
       "label": "Облачное хранилище Microsoft",
       "description": "Сохраняет файлы в интернете. Если не пользуетесь — можно отключить",
       "vendor": "Microsoft"
     },
     {
-      "id": "yandex_disk",
-      "names": ["Яндекс Диск", "Yandex Disk", "YandexDisk"],
-      "process": ["YandexDisk2.exe"],
-      "category": "yellow",
-      "label": "Облачное хранилище Яндекса",
-      "description": "Сохраняет файлы в интернете. Если не пользуетесь — можно отключить",
-      "vendor": "Яндекс"
-    },
-    {
       "id": "google_drive",
-      "names": ["Google Drive", "GoogleDriveFS"],
-      "process": ["GoogleDriveFS.exe"],
+      "names": [
+        "Google Drive",
+        "GoogleDriveFS"
+      ],
+      "process": [
+        "GoogleDriveFS.exe"
+      ],
       "category": "yellow",
       "label": "Облачное хранилище Google",
       "description": "Сохраняет файлы в интернете. Если не пользуетесь — можно отключить",
@@ -187,8 +410,12 @@
     },
     {
       "id": "dropbox",
-      "names": ["Dropbox"],
-      "process": ["Dropbox.exe"],
+      "names": [
+        "Dropbox"
+      ],
+      "process": [
+        "Dropbox.exe"
+      ],
       "category": "yellow",
       "label": "Облачное хранилище",
       "description": "Сохраняет файлы в интернете. Если не пользуетесь — можно отключить",
@@ -196,8 +423,14 @@
     },
     {
       "id": "steam",
-      "names": ["Steam", "Steam Client"],
-      "process": ["steam.exe", "steamwebhelper.exe"],
+      "names": [
+        "Steam",
+        "Steam Client"
+      ],
+      "process": [
+        "steam.exe",
+        "steamwebhelper.exe"
+      ],
       "category": "yellow",
       "label": "Магазин игр",
       "description": "Программа для покупки и запуска игр. Замедляет включение. Можно открыть вручную перед игрой",
@@ -205,8 +438,13 @@
     },
     {
       "id": "epic_games",
-      "names": ["Epic Games Launcher", "EpicGamesLauncher"],
-      "process": ["EpicGamesLauncher.exe"],
+      "names": [
+        "Epic Games Launcher",
+        "EpicGamesLauncher"
+      ],
+      "process": [
+        "EpicGamesLauncher.exe"
+      ],
       "category": "yellow",
       "label": "Магазин игр",
       "description": "Программа для игр. Замедляет включение. Можно открыть вручную",
@@ -214,8 +452,12 @@
     },
     {
       "id": "spotify",
-      "names": ["Spotify"],
-      "process": ["Spotify.exe"],
+      "names": [
+        "Spotify"
+      ],
+      "process": [
+        "Spotify.exe"
+      ],
       "category": "yellow",
       "label": "Музыкальный сервис",
       "description": "Музыка онлайн. Не нужна при включении — откройте когда захотите послушать",
@@ -223,8 +465,13 @@
     },
     {
       "id": "itunes",
-      "names": ["iTunes", "iTunesHelper"],
-      "process": ["iTunesHelper.exe"],
+      "names": [
+        "iTunes",
+        "iTunesHelper"
+      ],
+      "process": [
+        "iTunesHelper.exe"
+      ],
       "category": "yellow",
       "label": "Музыка и подключение iPhone",
       "description": "Нужна для подключения iPhone. Если не используете iPhone — можно отключить",
@@ -232,8 +479,17 @@
     },
     {
       "id": "adobe_updater",
-      "names": ["Adobe Update", "AdobeARM", "Adobe Creative Cloud"],
-      "process": ["AdobeARM.exe", "CCXProcess.exe", "Adobe Desktop Service.exe"],
+      "names": [
+        "Adobe Update",
+        "AdobeARM",
+        "Adobe Creative Cloud",
+        "Adobe Acrobat Update"
+      ],
+      "process": [
+        "AdobeARM.exe",
+        "CCXProcess.exe",
+        "Adobe Desktop Service.exe"
+      ],
       "category": "yellow",
       "label": "Обновление программ Adobe",
       "description": "Проверяет обновления для Adobe. Замедляет включение. Обновления можно проверить вручную",
@@ -241,8 +497,14 @@
     },
     {
       "id": "java_updater",
-      "names": ["Java Update", "jusched"],
-      "process": ["jusched.exe", "jucheck.exe"],
+      "names": [
+        "Java Update",
+        "jusched"
+      ],
+      "process": [
+        "jusched.exe",
+        "jucheck.exe"
+      ],
       "category": "red",
       "label": "Обновление Java",
       "description": "Проверяет обновления Java. Замедляет включение и часто не нужен. Безопасно отключить",
@@ -250,8 +512,15 @@
     },
     {
       "id": "utorrent",
-      "names": ["uTorrent", "µTorrent", "BitTorrent"],
-      "process": ["uTorrent.exe", "BitTorrent.exe"],
+      "names": [
+        "uTorrent",
+        "µTorrent",
+        "BitTorrent"
+      ],
+      "process": [
+        "uTorrent.exe",
+        "BitTorrent.exe"
+      ],
       "category": "red",
       "label": "Программа для скачивания",
       "description": "Показывает рекламу и замедляет компьютер. Можно открыть вручную когда нужно что-то скачать",
@@ -259,8 +528,14 @@
     },
     {
       "id": "ccleaner",
-      "names": ["CCleaner", "CCleanerBrowser"],
-      "process": ["CCleaner64.exe", "CCleaner.exe"],
+      "names": [
+        "CCleaner",
+        "CCleanerBrowser"
+      ],
+      "process": [
+        "CCleaner64.exe",
+        "CCleaner.exe"
+      ],
       "category": "red",
       "label": "Заблокированная программа",
       "description": "Заблокирована в России. Не работает и зря занимает ресурсы. Лучше удалить",
@@ -268,8 +543,15 @@
     },
     {
       "id": "mailru_agent",
-      "names": ["Mail.ru Агент", "Агент Mail.ru", "ICQ"],
-      "process": ["magent.exe", "icq.exe"],
+      "names": [
+        "Mail.ru Агент",
+        "Агент Mail.ru",
+        "ICQ"
+      ],
+      "process": [
+        "magent.exe",
+        "icq.exe"
+      ],
       "category": "red",
       "label": "Устаревший мессенджер",
       "description": "Устаревшая программа. Сервис закрыт — замедляет компьютер без пользы",
@@ -277,26 +559,29 @@
     },
     {
       "id": "amigo",
-      "names": ["Amigo", "Амиго"],
-      "process": ["amigo.exe", "browser.exe"],
+      "names": [
+        "Amigo",
+        "Амиго"
+      ],
+      "process": [
+        "amigo.exe",
+        "browser.exe"
+      ],
       "category": "red",
       "label": "Рекламный браузер",
       "description": "Установился без вашего разрешения. Показывает рекламу. Лучше удалить",
       "vendor": "Mail.ru"
     },
     {
-      "id": "yandex_music_autostart",
-      "names": ["Яндекс Музыка"],
-      "process": ["Яндекс Музыка.exe"],
-      "category": "red",
-      "label": "Музыкальный сервис",
-      "description": "Музыка онлайн. Не нужна при включении — откройте через браузер когда захотите",
-      "vendor": "Яндекс"
-    },
-    {
       "id": "driverpack",
-      "names": ["DriverPack", "DriverPack Solution", "DriverPack Cloud"],
-      "process": ["DriverPackCloud.exe"],
+      "names": [
+        "DriverPack",
+        "DriverPack Solution",
+        "DriverPack Cloud"
+      ],
+      "process": [
+        "DriverPackCloud.exe"
+      ],
       "category": "red",
       "label": "Установщик драйверов",
       "description": "Устанавливает ненужные программы и показывает рекламу. Windows обновляет драйверы сам",
@@ -304,8 +589,16 @@
     },
     {
       "id": "avast",
-      "names": ["Avast", "Avast Free Antivirus", "AVG"],
-      "process": ["AvastUI.exe", "AvastSvc.exe", "avgui.exe"],
+      "names": [
+        "Avast",
+        "Avast Free Antivirus",
+        "AVG"
+      ],
+      "process": [
+        "AvastUI.exe",
+        "AvastSvc.exe",
+        "avgui.exe"
+      ],
       "category": "red",
       "label": "Заблокированный антивирус",
       "description": "Заблокирован в России. Не обновляется и не защищает. Лучше удалить и использовать другой антивирус",
@@ -313,8 +606,14 @@
     },
     {
       "id": "opera_gx_gaming",
-      "names": ["Opera GX", "OperaGXStable"],
-      "process": ["opera.exe", "launcher.exe"],
+      "names": [
+        "Opera GX",
+        "OperaGXStable"
+      ],
+      "process": [
+        "opera.exe",
+        "launcher.exe"
+      ],
       "category": "yellow",
       "label": "Игровой браузер",
       "description": "Браузер для геймеров. Запускается сам — можно открыть вручную",
@@ -322,8 +621,13 @@
     },
     {
       "id": "cortana",
-      "names": ["Cortana"],
-      "process": ["Cortana.exe", "SearchUI.exe"],
+      "names": [
+        "Cortana"
+      ],
+      "process": [
+        "Cortana.exe",
+        "SearchUI.exe"
+      ],
       "category": "red",
       "label": "Голосовой помощник Microsoft",
       "description": "В России не работает. Занимает память и замедляет компьютер. Безопасно отключить",
@@ -331,8 +635,14 @@
     },
     {
       "id": "teams",
-      "names": ["Microsoft Teams", "Teams"],
-      "process": ["ms-teams.exe", "Teams.exe"],
+      "names": [
+        "Microsoft Teams",
+        "Teams"
+      ],
+      "process": [
+        "ms-teams.exe",
+        "Teams.exe"
+      ],
       "category": "yellow",
       "label": "Рабочий мессенджер",
       "description": "Программа для рабочих совещаний. Если не используете для работы — можно отключить",
@@ -340,8 +650,13 @@
     },
     {
       "id": "nvidia_geforce_exp",
-      "names": ["NVIDIA GeForce Experience", "GeForce Experience"],
-      "process": ["NVIDIA GeForce Experience.exe"],
+      "names": [
+        "NVIDIA GeForce Experience",
+        "GeForce Experience"
+      ],
+      "process": [
+        "NVIDIA GeForce Experience.exe"
+      ],
       "category": "yellow",
       "label": "Настройка игр NVIDIA",
       "description": "Оптимизирует настройки игр. Если не играете — можно отключить. Видеокарта будет работать без неё",
@@ -349,8 +664,14 @@
     },
     {
       "id": "hp_support",
-      "names": ["HP Support Assistant", "HP JumpStart"],
-      "process": ["HPSF.exe", "HPJumpStartBridge.exe"],
+      "names": [
+        "HP Support Assistant",
+        "HP JumpStart"
+      ],
+      "process": [
+        "HPSF.exe",
+        "HPJumpStartBridge.exe"
+      ],
       "category": "red",
       "label": "Утилита производителя",
       "description": "Программа от HP. Показывает рекламу и замедляет компьютер. Компьютер работает без неё",
@@ -358,8 +679,13 @@
     },
     {
       "id": "lenovo_vantage",
-      "names": ["Lenovo Vantage", "Lenovo Service"],
-      "process": ["LenovoVantageService.exe"],
+      "names": [
+        "Lenovo Vantage",
+        "Lenovo Service"
+      ],
+      "process": [
+        "LenovoVantageService.exe"
+      ],
       "category": "yellow",
       "label": "Утилита Lenovo",
       "description": "Обновляет драйверы ноутбука Lenovo. Можно отключить, но иногда полезна",
@@ -367,8 +693,14 @@
     },
     {
       "id": "asus_armoury",
-      "names": ["ASUS Armoury Crate", "ArmouryCrate", "ASUS Optimization"],
-      "process": ["ArmouryCrate.exe"],
+      "names": [
+        "ASUS Armoury Crate",
+        "ArmouryCrate",
+        "ASUS Optimization"
+      ],
+      "process": [
+        "ArmouryCrate.exe"
+      ],
       "category": "yellow",
       "label": "Утилита ASUS",
       "description": "Управляет настройками ноутбука ASUS. Можно отключить если не настраиваете подсветку",

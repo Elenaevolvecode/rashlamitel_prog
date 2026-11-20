@@ -108,24 +108,47 @@ function Get-StartupFiles($folder) {
   if ($p -and (Test-Path -LiteralPath $p)) { @(Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) } else { @() }
 }
 $startup = @{ user = @(Get-StartupFiles 'Startup'); common = @(Get-StartupFiles 'CommonStartup') }
-@{ entries = $entries; approved = $approved; startup = $startup } | ConvertTo-Json -Depth 5 -Compress
+# Программы, которые запускаются при входе/включении через Планировщик заданий (не системные задания Windows)
+$tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+  $_.TaskPath -notlike '\\Microsoft\\*' -and $_.TaskName -ne $A.ownTask -and
+  (@($_.Triggers) | Where-Object { $_ -and $_.CimClass.CimClassName -in @('MSFT_TaskLogonTrigger', 'MSFT_TaskBootTrigger') })
+} | ForEach-Object {
+  $act = @($_.Actions)[0]
+  [pscustomobject]@{ name = $_.TaskName; path = $_.TaskPath; state = [string]$_.State;
+    exe = $(if ($act) { [string]$act.Execute + ' ' + [string]$act.Arguments } else { '' }) }
+})
+@{ entries = $entries; approved = $approved; startup = $startup; tasks = $tasks } | ConvertTo-Json -Depth 5 -Compress
 `;
 
-const WRITE_SCRIPT = `
-$p = $A.path
-if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
-$b = New-Object byte[] 12
-$b[0] = [byte]$A.flag
-if ($A.flag -eq 3) {
-  $ts = [BitConverter]::GetBytes([DateTime]::Now.ToFileTime())
-  [Array]::Copy($ts, 0, $b, 4, 8)
+// Пакетные операции: одним вызовом PowerShell (а для общих настроек — одним окном «Разрешить изменения?»)
+const APPLY_SCRIPT = `
+foreach ($r in @($A.reg)) {
+  try {
+    if (-not (Test-Path $r.path)) { New-Item -Path $r.path -Force | Out-Null }
+    $b = New-Object byte[] 12
+    $b[0] = [byte]$r.flag
+    if ($r.flag -eq 3) { $ts = [BitConverter]::GetBytes([DateTime]::Now.ToFileTime()); [Array]::Copy($ts, 0, $b, 4, 8) }
+    Set-ItemProperty -Path $r.path -Name $r.name -Value $b -Type Binary -Force
+  } catch {}
 }
-Set-ItemProperty -Path $p -Name $A.name -Value $b -Type Binary -Force
+foreach ($t in @($A.tasks)) {
+  try {
+    if ($t.enable) { Enable-ScheduledTask -TaskPath $t.path -TaskName $t.name -ErrorAction Stop | Out-Null }
+    else { Disable-ScheduledTask -TaskPath $t.path -TaskName $t.name -ErrorAction Stop | Out-Null }
+  } catch {}
+}
 `;
 
-const READ_FLAG_SCRIPT = `
-$v = (Get-ItemProperty -Path $A.path -Name $A.name -ErrorAction SilentlyContinue).($A.name)
-if ($v -is [byte[]] -and $v.Length -gt 0) { [int]$v[0] } else { -1 }
+const VERIFY_SCRIPT = `
+$reg = @(foreach ($r in @($A.reg)) {
+  $v = (Get-ItemProperty -Path $r.path -Name $r.name -ErrorAction SilentlyContinue).($r.name)
+  if ($v -is [byte[]] -and $v.Length -gt 0) { [int]$v[0] } else { -1 }
+})
+$tasks = @(foreach ($t in @($A.tasks)) {
+  $x = Get-ScheduledTask -TaskPath $t.path -TaskName $t.name -ErrorAction SilentlyContinue
+  if ($x) { [string]$x.State } else { 'Missing' }
+})
+@{ reg = $reg; tasks = $tasks } | ConvertTo-Json -Compress
 `;
 
 function matchWithDatabase(entry, database) {
@@ -171,7 +194,27 @@ function buildList(raw, database, username) {
       icon: (db && iconMap[db.id]) || (category === 'green' ? '🛡' : category === 'red' ? '⚠' : '❓'),
       enabled: !isDisabledFlag(flag),
       needsAdmin: key.hive === 'HKLM',
-      _key: key,
+      _key: { kind: 'reg', ...key },
+    });
+  }
+  for (const t of arr(raw.tasks)) {
+    if (!t || !t.name) continue;
+    const id = `task:${t.path || '\\'}${t.name}`.toLowerCase();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const db = matchWithDatabase({ name: t.name, command: t.exe || '' }, database);
+    const category = db ? db.category : 'yellow';
+    list.push({
+      id,
+      name: db ? db.names[0] : displayName(t.name),
+      category,
+      label: LABELS[category],
+      description: db ? db.description : 'Запускается при включении компьютера',
+      vendor: db ? db.vendor : '',
+      icon: (db && iconMap[db.id]) || (category === 'green' ? '🛡' : category === 'red' ? '⚠' : '❓'),
+      enabled: t.state !== 'Disabled',
+      needsAdmin: false, // заранее не знаем: попробуем без разрешения, не выйдет — попросим
+      _key: { kind: 'task', path: t.path || '\\', name: t.name },
     });
   }
   list.sort((a, b) => ({ green: 0, yellow: 1, red: 2 })[a.category] - ({ green: 0, yellow: 1, red: 2 })[b.category]);
@@ -182,34 +225,65 @@ let lastList = [];
 
 async function getAutostart() {
   if (process.platform !== 'win32') return [];
-  const raw = await ps.runJson(READ_SCRIPT, { base: APPROVED_BASE, subkeys: SUBKEYS }, { entries: [], approved: {} });
+  const raw = await ps.runJson(READ_SCRIPT, { base: APPROVED_BASE, subkeys: SUBKEYS, ownTask: 'Rashlamitel Reminder' }, { entries: [], approved: {} });
   lastList = buildList(raw, loadDatabase());
   return lastList.map(({ _key, ...rest }) => rest);
 }
 
-/**
- * Включить/выключить по id из последнего списка.
- * Возвращает { ok, cancelled } — ok только если флаг реально изменился в реестре.
- */
-async function setEnabled(id, enabled) {
-  const item = lastList.find((x) => x.id === id);
-  if (!item) return { ok: false };
-  const { hive, sub, valueName } = item._key;
-  const args = { path: approvedRegPath(hive, sub), name: valueName, flag: enabled ? 2 : 3 };
-
-  let cancelled = false;
-  if (hive === 'HKLM') {
-    const r = await ps.runElevated(WRITE_SCRIPT, args);
-    cancelled = r.cancelled;
-  } else {
-    await ps.run(WRITE_SCRIPT, args);
+/** Разложить пункты на «запись в реестре» и «задание Планировщика» в формате скриптов. */
+function toOps(items, enabled) {
+  const reg = [], tasks = [];
+  for (const it of items) {
+    if (it._key.kind === 'task') tasks.push({ id: it.id, path: it._key.path, name: it._key.name, enable: enabled });
+    else reg.push({ id: it.id, hklm: it._key.hive === 'HKLM', path: approvedRegPath(it._key.hive, it._key.sub), name: it._key.valueName, flag: enabled ? 2 : 3 });
   }
-  // Проверяем, что флаг действительно записался (а не «ОК» на всякий случай)
-  const check = await ps.run(READ_FLAG_SCRIPT, { path: args.path, name: valueName });
-  const b0 = parseInt(check.stdout, 10);
-  const ok = b0 >= 0 && isDisabledFlag(b0) === !enabled;
-  if (ok) item.enabled = enabled;
-  return { ok, cancelled };
+  return { reg, tasks };
 }
 
-module.exports = { getAutostart, setEnabled, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
+/** Проверить, что изменения действительно применились. Возвращает Set id, где всё как надо. */
+async function verify(ops, enabled) {
+  const r = await ps.runJson(VERIFY_SCRIPT, { reg: ops.reg, tasks: ops.tasks }, { reg: [], tasks: [] });
+  const regRes = Array.isArray(r.reg) ? r.reg : r.reg != null ? [r.reg] : [];
+  const taskRes = Array.isArray(r.tasks) ? r.tasks : r.tasks != null ? [r.tasks] : [];
+  const ok = new Set();
+  ops.reg.forEach((x, i) => { const b0 = Number(regRes[i]); if (b0 >= 0 && isDisabledFlag(b0) === !enabled) ok.add(x.id); });
+  ops.tasks.forEach((x, i) => { const st = String(taskRes[i] || ''); if (st && st !== 'Missing' && (st === 'Disabled') === !enabled) ok.add(x.id); });
+  return ok;
+}
+
+/**
+ * Включить/выключить сразу несколько пунктов по id из последнего списка.
+ * Сначала — всё, что можно без разрешения Windows; остальное (общие настройки, задания других
+ * пользователей) — одним окном «Разрешить изменения?».
+ * Возвращает { done, total, cancelled, okIds } — «ok» только для того, что реально изменилось.
+ */
+async function setMany(ids, enabled) {
+  const items = lastList.filter((x) => ids.includes(x.id));
+  if (!items.length) return { done: 0, total: 0, cancelled: false, okIds: [] };
+  const all = toOps(items, enabled);
+
+  // 1. Без разрешения: свои записи реестра и задания Планировщика
+  const first = { reg: all.reg.filter((x) => !x.hklm), tasks: all.tasks };
+  if (first.reg.length || first.tasks.length) await ps.run(APPLY_SCRIPT, first);
+  let ok = await verify(all, enabled);
+
+  // 2. Остальное — одним окном Windows
+  let cancelled = false;
+  const left = { reg: all.reg.filter((x) => !ok.has(x.id)), tasks: all.tasks.filter((x) => !ok.has(x.id)) };
+  if (left.reg.length || left.tasks.length) {
+    const r = await ps.runElevated(APPLY_SCRIPT, left);
+    cancelled = r.cancelled;
+    ok = await verify(all, enabled);
+  }
+
+  for (const it of items) if (ok.has(it.id)) it.enabled = enabled;
+  return { done: ok.size, total: items.length, cancelled, okIds: [...ok] };
+}
+
+/** Включить/выключить один пункт. Возвращает { ok, cancelled }. */
+async function setEnabled(id, enabled) {
+  const r = await setMany([id], enabled);
+  return { ok: r.done === 1, cancelled: r.cancelled };
+}
+
+module.exports = { getAutostart, setEnabled, setMany, toOps, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };

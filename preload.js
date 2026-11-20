@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('rashlamitel', {
   // Автозагрузка
   getAutostart: () => ipcRenderer.invoke('autostart:get'),
   setAutostart: (id, enabled) => ipcRenderer.invoke('autostart:set', id, enabled),
+  setAutostartMany: (ids, enabled) => ipcRenderer.invoke('autostart:setMany', ids, enabled),
   // Программы
   getPrograms: () => ipcRenderer.invoke('programs:get'),
   uninstallProgram: (id) => ipcRenderer.invoke('programs:uninstall', id),

@@ -461,13 +461,18 @@ async function toggleAutostart(input) {
 async function disableAllUnnecessary() {
   const targets = (state.autostartData || []).filter((p) => p.category === 'red' && p.enabled);
   if (!targets.length) { showToast('Лишнего уже ничего не запускается'); return; }
-  let done = 0;
-  for (const p of targets) {
-    const r = await setAutostart(p, false);
-    if (r.ok) { p.enabled = false; done++; }
-  }
+  let done = 0, cancelled = false;
+  if (isElectron) {
+    // Всё сразу: что можно — без вопросов, остальное — одним окном Windows «Разрешить изменения?»
+    showToast('Отключаю… Если Windows спросит разрешение — нажмите «Да»');
+    const r = await api.setAutostartMany(targets.map((p) => p.id), false);
+    for (const p of targets) if (r.okIds.includes(p.id)) p.enabled = false;
+    done = r.done; cancelled = r.cancelled;
+  } else { targets.forEach((p) => { p.enabled = false; }); done = targets.length; }
   renderAutostart();
-  showToast(done === targets.length ? 'Готово! При следующем включении компьютер запустится быстрее' : `Отключил ${done} из ${targets.length}`);
+  if (done === targets.length) showToast('Готово! При следующем включении компьютер запустится быстрее');
+  else if (cancelled) showToast(`Отключил ${done} из ${targets.length}. Остальным нужно разрешение Windows — без него не получилось`);
+  else showToast(`Отключил ${done} из ${targets.length}`);
 }
 
 // ===== Программы =====

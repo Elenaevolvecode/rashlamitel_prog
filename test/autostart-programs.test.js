@@ -103,3 +103,50 @@ test('автозагрузка: buildList использует список фа
   assert.strictEqual(list[0].enabled, false, 'видит, что в Диспетчере задач он отключён');
   assert.strictEqual(list[0].name, 'Voice.ai - Voice Changer');
 });
+
+test('автозагрузка: задания Планировщика попадают в список, обновлялки узнаются', () => {
+  const db = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'autostart_database.json'), 'utf8'));
+  const raw = {
+    entries: [], approved: {},
+    tasks: [
+      { name: 'MicrosoftEdgeUpdateTaskMachineUA', path: '\\', state: 'Ready', exe: 'C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /ua' },
+      { name: 'SomeVendorHelper', path: '\\Vendor\\', state: 'Disabled', exe: 'C:\\v\\helper.exe' },
+    ],
+  };
+  const list = buildList(raw, db, 'elena');
+  const edge = list.find((x) => x.id.includes('microsoftedgeupdate'));
+  assert.strictEqual(edge.name, 'MicrosoftEdgeUpdate', 'обновлялка Edge, а не сам браузер');
+  assert.ok(edge.description.includes('обновления'));
+  assert.strictEqual(edge.enabled, true);
+  const helper = list.find((x) => x.id === 'task:\\vendor\\somevendorhelper');
+  assert.strictEqual(helper.enabled, false);
+  assert.strictEqual(helper.name, 'SomeVendorHelper');
+});
+
+test('автозагрузка: Яндекс Диск не путается с Яндекс Браузером', () => {
+  const db = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'autostart_database.json'), 'utf8'));
+  const raw = { entries: [{ name: 'YandexDisk2', command: 'C:\\Users\\x\\AppData\\Roaming\\Yandex\\YandexDisk2\\YandexDisk2.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\elena' }], approved: {} };
+  assert.strictEqual(buildList(raw, db, 'elena')[0].name, 'Яндекс Диск');
+});
+
+test('Windows: задание с запуском при входе находится, отключается и включается', { skip: process.platform !== 'win32' && 'только на Windows' }, async () => {
+  const ps = require('../modules/ps');
+  const autostart = require('../modules/autostart');
+  const NAME = 'Rashlamitel Test Logon Task';
+  await ps.run(
+    "$a = New-ScheduledTaskAction -Execute 'notepad.exe'; " +
+    "$t = New-ScheduledTaskTrigger -AtLogOn -User ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name); " +
+    "Register-ScheduledTask -TaskName $A.name -Action $a -Trigger $t -Force | Out-Null", { name: NAME });
+  try {
+    const list = await autostart.getAutostart();
+    const item = list.find((x) => x.id === `task:\\${NAME}`.toLowerCase());
+    assert.ok(item, 'задание видно в списке автозагрузки');
+    assert.strictEqual(item.enabled, true);
+    const off = await autostart.setMany([item.id], false);
+    assert.strictEqual(off.done, 1, 'отключилось');
+    const on = await autostart.setEnabled(item.id, true);
+    assert.strictEqual(on.ok, true, 'включилось обратно');
+  } finally {
+    await ps.run('Unregister-ScheduledTask -TaskName $A.name -Confirm:$false -ErrorAction SilentlyContinue', { name: NAME });
+  }
+});

@@ -218,6 +218,7 @@ ipcMain.handle('autostart:get', async () => {
   try { return await autostart.getAutostart(); } catch (e) { console.error(e); return []; }
 });
 ipcMain.handle('autostart:set', (e, id, enabled) => autostart.setEnabled(String(id), !!enabled));
+ipcMain.handle('autostart:setMany', (e, list, enabled) => autostart.setMany(Array.isArray(list) ? list.map(String) : [], !!enabled));
 
 // --- Программы ---
 ipcMain.handle('programs:get', async () => {
