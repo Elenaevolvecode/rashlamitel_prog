@@ -37,6 +37,7 @@ test('порог 1 ГБ и текст', () => {
   assert.strictEqual(r.shouldRemind(0.9 * GB), false);
   assert.strictEqual(r.shouldRemind(1 * GB), true);
   assert.strictEqual(r.gbText(3.24 * GB), '3,2 ГБ');
+  assert.strictEqual(r.gbText(40 * 1048576), '40 МБ');
 });
 
 test('задание: латинское имя, ключ --remind передаётся в скрипт', () => {

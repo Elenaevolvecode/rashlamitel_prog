@@ -8,7 +8,7 @@ const GB = 1073741824;
 
 const state = {
   navStack: [], currentScreen: null,
-  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30, cleanChoices: {} },
+  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30, savedChoices: {} },
   scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, progScreen: null,
 };
@@ -170,18 +170,24 @@ function demoScan(items = DEMO_ITEMS) { return { items, total: items.reduce((s, 
 
 // Пункты, которые никогда не запоминаем: необратимые или долгие — галочка каждый раз снята
 const NEVER_REMEMBER = ['recycle', 'deep'];
-/** Отмечен ли пункт при открытии: обычный выбор или то, что пользователь выбрал в прошлый раз. */
+/** Отмечен ли пункт при открытии: обычный выбор или то, что пользователь выбрал при прошлой уборке. */
 function isChosen(i) {
-  const saved = (state.settings.cleanChoices || {})[i.id];
+  const saved = (state.settings.savedChoices || {})[i.id];
   if (NEVER_REMEMBER.includes(i.id) || typeof saved !== 'boolean') return i.defaultOn;
   return saved;
 }
-function rememberChoice(id, on) {
-  if (NEVER_REMEMBER.includes(id)) return;
-  const item = scanItems().find((i) => i.id === id);
-  const choices = { ...(state.settings.cleanChoices || {}) };
-  if (item && on === item.defaultOn) delete choices[id]; else choices[id] = on;
-  setSetting('cleanChoices', choices);
+/**
+ * Запомнить выбор — только когда человек действительно нажал «Удалить/Проверить отмеченное».
+ * Просто пощёлкать галочками и уйти — ничего не сохраняется.
+ */
+function saveChoices() {
+  const choices = { ...(state.settings.savedChoices || {}) };
+  for (const i of scanItems()) {
+    if (NEVER_REMEMBER.includes(i.id)) continue;
+    const on = state.selected.has(i.id);
+    if (on === i.defaultOn) delete choices[i.id]; else choices[i.id] = on;
+  }
+  setSetting('savedChoices', choices);
 }
 
 function scanItems() { return (state.scanResults && state.scanResults.items) || []; }
@@ -224,6 +230,9 @@ function updateMainScreen() {
   else if (bytes >= 50 * 1048576) { t.textContent = 'Мусора немного, но почистить можно'; f.style.width = '12%'; f.style.background = '#1D8A40'; }
   else { t.textContent = 'Компьютер чистый — мусора почти нет!'; f.style.width = '5%'; f.style.background = '#1D8A40'; }
   a.textContent = (bytes > 0 && gb === 0 ? formatBytes(bytes) : gb + ' ГБ');
+  // Пункты, которые человек при прошлых уборках не отмечал, в «мусор» не считаем — но и не прячем
+  const excluded = scanItems().filter((i) => i.defaultOn && !isChosen(i)).reduce((s, i) => s + i.size, 0);
+  if (excluded >= 50 * 1048576) t.textContent += ` Ещё ${formatBytes(excluded)} — в пунктах, которые вы обычно не отмечаете.`;
 }
 
 // ===== Экран «Вот что я нашёл» =====
@@ -263,7 +272,6 @@ function renderPreview() {
 
 function togglePreviewItem(id, on) {
   if (on) state.selected.add(id); else state.selected.delete(id);
-  rememberChoice(id, on);
   const card = $('pc-' + id); if (card) card.classList.toggle('off', !on);
   updatePreviewTotal();
 }
@@ -305,6 +313,7 @@ async function startCleaning() {
   if (state.cleaningInProgress) return;
   const selected = scanItems().filter((i) => state.selected.has(i.id));
   if (!selected.length) return;
+  saveChoices();
   state.cleaningInProgress = true;
   try {
     const skip = await askAboutRunningApps(selected.map((i) => i.id));

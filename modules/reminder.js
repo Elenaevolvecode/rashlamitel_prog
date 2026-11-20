@@ -36,7 +36,10 @@ function reminderBytes(items, choices = {}) {
 
 function shouldRemind(bytes) { return bytes >= THRESHOLD; }
 
-function gbText(bytes) { return (bytes / 1073741824).toFixed(1).replace('.', ',') + ' ГБ'; }
+function gbText(bytes) {
+  if (bytes < 0.1 * 1073741824) return Math.round(bytes / 1048576) + ' МБ';
+  return (bytes / 1073741824).toFixed(1).replace('.', ',') + ' ГБ';
+}
 
 const SYNC_SCRIPT = `
 $ErrorActionPreference = 'Stop'
