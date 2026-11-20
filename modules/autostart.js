@@ -223,9 +223,17 @@ function buildList(raw, database, username) {
 
 let lastList = [];
 
+/** Прочитать сырые данные (вынесено отдельно — для диагностики в тестах). */
+async function readRaw() {
+  const r = await ps.run(READ_SCRIPT, { base: APPROVED_BASE, subkeys: SUBKEYS, ownTask: 'Rashlamitel Reminder' });
+  let raw = { entries: [], approved: {} };
+  try { raw = JSON.parse(r.stdout); } catch { console.error('autostart read failed', r.code, r.stderr.slice(0, 2000)); }
+  return { raw, code: r.code, stderr: r.stderr };
+}
+
 async function getAutostart() {
   if (process.platform !== 'win32') return [];
-  const raw = await ps.runJson(READ_SCRIPT, { base: APPROVED_BASE, subkeys: SUBKEYS, ownTask: 'Rashlamitel Reminder' }, { entries: [], approved: {} });
+  const { raw } = await readRaw();
   lastList = buildList(raw, loadDatabase());
   return lastList.map(({ _key, ...rest }) => rest);
 }
@@ -286,4 +294,4 @@ async function setEnabled(id, enabled) {
   return { ok: r.done === 1, cancelled: r.cancelled };
 }
 
-module.exports = { getAutostart, setEnabled, setMany, toOps, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
+module.exports = { getAutostart, readRaw, setEnabled, setMany, toOps, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };

@@ -133,13 +133,22 @@ test('Windows: задание с запуском при входе находи
   const ps = require('../modules/ps');
   const autostart = require('../modules/autostart');
   const NAME = 'Rashlamitel Test Logon Task';
-  await ps.run(
+  const reg = await ps.run(
     "$a = New-ScheduledTaskAction -Execute 'notepad.exe'; " +
     "$t = New-ScheduledTaskTrigger -AtLogOn -User ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name); " +
-    "Register-ScheduledTask -TaskName $A.name -Action $a -Trigger $t -Force | Out-Null", { name: NAME });
+    "Register-ScheduledTask -TaskName $A.name -Action $a -Trigger $t -Force | Out-Null; " +
+    "$x = Get-ScheduledTask -TaskName $A.name; $x.TaskPath + '|' + $x.State + '|' + (@($x.Triggers)[0].CimClass.CimClassName)", { name: NAME });
   try {
     const list = await autostart.getAutostart();
     const item = list.find((x) => x.id === `task:\\${NAME}`.toLowerCase());
+    if (!item) {
+      // Диагностика: создалось ли задание и что вернул скрипт чтения
+      const rr = await autostart.readRaw();
+      console.log('DIAG register:', reg.code, reg.stdout, reg.stderr.slice(0, 1500));
+      console.log('DIAG read code:', rr.code, 'stderr:', rr.stderr.slice(0, 1500));
+      console.log('DIAG tasks:', JSON.stringify(rr.raw.tasks).slice(0, 1500));
+      console.log('DIAG ids:', list.filter((x) => x.id.startsWith('task:')).map((x) => x.id).join(', ').slice(0, 1500));
+    }
     assert.ok(item, 'задание видно в списке автозагрузки');
     assert.strictEqual(item.enabled, true);
     const off = await autostart.setMany([item.id], false);
