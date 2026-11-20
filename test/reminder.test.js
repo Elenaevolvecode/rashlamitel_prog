@@ -21,7 +21,7 @@ test('первое напоминание — через N дней в полд�
   assert.strictEqual(r.syncArgs({ enabled: true, days: 7, exe: 'C:\\a.exe', now }).at, '2026-11-25T12:00:00');
 });
 
-test('считаем мусор как на главном экране: с сохранёнными галочками, без Корзины и глубокой очистки', () => {
+test('считаем мусор как на главном экране: всё найденное, без Корзины и глубокой очистки', () => {
   const items = [
     { id: 'chrome', size: 2 * GB, defaultOn: true },
     { id: 'telegram', size: 1 * GB, defaultOn: true },
@@ -29,8 +29,6 @@ test('считаем мусор как на главном экране: с со
     { id: 'deep', size: 0, defaultOn: false, sizeUnknown: true },
   ];
   assert.strictEqual(r.reminderBytes(items), 3 * GB);
-  assert.strictEqual(r.reminderBytes(items, { chrome: false }), 1 * GB);
-  assert.strictEqual(r.reminderBytes(items, { recycle: true }), 3 * GB, 'Корзину не считаем, даже если когда-то отмечали');
 });
 
 test('порог 1 ГБ и текст', () => {

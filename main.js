@@ -134,7 +134,7 @@ ipcMain.handle('reminder:action', async (e, action) => {
 async function remindCheck({ force = false } = {}) {
   let scan;
   try { scan = await cleaner.scan({ deep: false }); } catch (e) { console.error(e); return false; }
-  const bytes = reminder.reminderBytes(scan.items, store.get('savedChoices') || {});
+  const bytes = reminder.reminderBytes(scan.items);
   const enough = reminder.shouldRemind(bytes);
   if (!enough && !force) return false;
   showReminderWindow(reminder.gbText(bytes), !enough);

@@ -8,7 +8,7 @@ const GB = 1073741824;
 
 const state = {
   navStack: [], currentScreen: null,
-  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30, savedChoices: {} },
+  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30 },
   scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, progScreen: null,
 };
@@ -168,31 +168,13 @@ const DEMO_ITEMS = [
 ];
 function demoScan(items = DEMO_ITEMS) { return { items, total: items.reduce((s, i) => s + i.size, 0) }; }
 
-// Пункты, которые никогда не запоминаем: необратимые или долгие — галочка каждый раз снята
-const NEVER_REMEMBER = ['recycle', 'deep'];
-/** Отмечен ли пункт при открытии: обычный выбор или то, что пользователь выбрал при прошлой уборке. */
-function isChosen(i) {
-  const saved = (state.settings.savedChoices || {})[i.id];
-  if (NEVER_REMEMBER.includes(i.id) || typeof saved !== 'boolean') return i.defaultOn;
-  return saved;
-}
-/**
- * Запомнить выбор — только когда человек действительно нажал «Удалить/Проверить отмеченное».
- * Просто пощёлкать галочками и уйти — ничего не сохраняется.
- */
-function saveChoices() {
-  const choices = { ...(state.settings.savedChoices || {}) };
-  for (const i of scanItems()) {
-    if (NEVER_REMEMBER.includes(i.id)) continue;
-    const on = state.selected.has(i.id);
-    if (on === i.defaultOn) delete choices[i.id]; else choices[i.id] = on;
-  }
-  setSetting('savedChoices', choices);
-}
-
 function scanItems() { return (state.scanResults && state.scanResults.items) || []; }
-/** Сколько уберу «по умолчанию» — ровно столько покажет и экран предпросмотра при открытии. */
-function defaultBytes() { return scanItems().filter(isChosen).reduce((s, i) => s + i.size, 0); }
+/**
+ * Сколько всего найдено мусора — столько же «Выбрано» на экране предпросмотра при открытии.
+ * Галочки каждый раз стоят одинаково: всё, кроме Корзины и глубокой очистки. Выбор не запоминаем —
+ * так проще и понятнее (запоминание пробовали в 0.11–0.13.1 и убрали: путало).
+ */
+function defaultBytes() { return scanItems().filter((i) => i.defaultOn).reduce((s, i) => s + i.size, 0); }
 
 async function scanTrash() {
   if (state.scanning) return;
@@ -203,7 +185,7 @@ async function scanTrash() {
     if (isElectron) state.scanResults = await api.scan();
     else { await sleep(500); state.scanResults = demoScan(); }
   } finally { state.scanning = false; }
-  state.selected = new Set(scanItems().filter(isChosen).map((i) => i.id));
+  state.selected = new Set(scanItems().filter((i) => i.defaultOn).map((i) => i.id));
 
   // Короткая сводка по группам; подробности — на экране предпросмотра
   const rows = Object.entries(GROUPS).map(([g, title]) => {
@@ -230,9 +212,6 @@ function updateMainScreen() {
   else if (bytes >= 50 * 1048576) { t.textContent = 'Мусора немного, но почистить можно'; f.style.width = '12%'; f.style.background = '#1D8A40'; }
   else { t.textContent = 'Компьютер чистый — мусора почти нет!'; f.style.width = '5%'; f.style.background = '#1D8A40'; }
   a.textContent = (bytes > 0 && gb === 0 ? formatBytes(bytes) : gb + ' ГБ');
-  // Пункты, которые человек при прошлых уборках не отмечал, в «мусор» не считаем — но и не прячем
-  const excluded = scanItems().filter((i) => i.defaultOn && !isChosen(i)).reduce((s, i) => s + i.size, 0);
-  if (excluded >= 50 * 1048576) t.textContent += ` Ещё ${formatBytes(excluded)} — в пунктах, которые вы обычно не отмечаете.`;
 }
 
 // ===== Экран «Вот что я нашёл» =====
@@ -313,7 +292,6 @@ async function startCleaning() {
   if (state.cleaningInProgress) return;
   const selected = scanItems().filter((i) => state.selected.has(i.id));
   if (!selected.length) return;
-  saveChoices();
   state.cleaningInProgress = true;
   try {
     const skip = await askAboutRunningApps(selected.map((i) => i.id));
@@ -385,7 +363,11 @@ function showRes(r) {
   $('result-title').textContent = dry ? 'ПРОВЕРКА ЗАВЕРШЕНА' : 'ГОТОВО!';
   $('result-subtitle').textContent = dry ? 'Вот сколько я мог бы убрать' : 'Ваш компьютер стал чище';
   $('result-amount-label').textContent = dry ? 'можно убрать' : moved ? 'убрано' : 'освобождено';
-  $('result-gb').textContent = bytesToGB(r.totalFreed + moved);
+  // Меньше 0,1 ГБ показываем в мегабайтах, а не «0.0 ГБ»
+  const total = r.totalFreed + moved;
+  const small = total < 0.1 * GB;
+  $('result-gb').textContent = small ? String(Math.round(total / 1048576)) : bytesToGB(total);
+  $('result-unit').textContent = small ? 'МБ' : 'ГБ';
 
   $('result-summary').innerHTML = r.items.map((i) => {
     const value = i.label ? escHtml(i.label) : i.skipped ? 'не трогал' : i.moved ? `${formatBytes(i.moved)} → в Корзину` : formatBytes(i.freed);

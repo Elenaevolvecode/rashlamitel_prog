@@ -14,7 +14,6 @@ const ps = require('./ps');
 const TASK_NAME = 'Rashlamitel Reminder'; // латиницей — так надёжнее для Планировщика и деинсталлятора
 const THRESHOLD = 1024 * 1024 * 1024; // 1 ГБ
 const DAYS_ALLOWED = [7, 14, 30];
-const NEVER_REMEMBER = ['recycle', 'deep'];
 
 function normalizeDays(d) { return DAYS_ALLOWED.includes(Number(d)) ? Number(d) : 30; }
 
@@ -24,14 +23,9 @@ function firstRun(days, now = new Date()) {
   return d;
 }
 
-/** Сколько мусора считать для напоминания: как на главном экране (с учётом сохранённых галочек). */
-function reminderBytes(items, choices = {}) {
-  return items.filter((i) => {
-    if (i.sizeUnknown) return false;
-    const saved = choices[i.id];
-    if (NEVER_REMEMBER.includes(i.id) || typeof saved !== 'boolean') return i.defaultOn;
-    return saved;
-  }).reduce((s, i) => s + i.size, 0);
+/** Сколько мусора считать для напоминания: как на главном экране — всё найденное, кроме Корзины и глубокой очистки. */
+function reminderBytes(items) {
+  return items.filter((i) => i.defaultOn && !i.sizeUnknown).reduce((s, i) => s + i.size, 0);
 }
 
 function shouldRemind(bytes) { return bytes >= THRESHOLD; }
