@@ -34,7 +34,8 @@ test('папки: размеры и порядок, без AppData и OneDrive',
   assert.strictEqual(byTitle['Видео'], 350 * MB);
   assert.strictEqual(byTitle['Документы'], 1 * MB);
   assert.strictEqual(byTitle['Файлы в папке пользователя'], 150 * MB);
-  assert.ok(!r.folders.some((f) => /appdata|onedrive/i.test(f.path)));
+  // Смотрим только часть пути внутри тестовой папки: в Windows сама временная папка лежит в AppData\Local\Temp
+  assert.ok(!r.folders.some((f) => /appdata|onedrive/i.test(path.relative(home, f.path))));
   assert.strictEqual(r.folders[0].title, 'Загрузки', 'самые тяжёлые — первыми');
   assert.deepStrictEqual(r.skipped, ['OneDrive']);
 });
