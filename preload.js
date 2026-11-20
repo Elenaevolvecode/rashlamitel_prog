@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('rashlamitel', {
   // Программы
   getPrograms: () => ipcRenderer.invoke('programs:get'),
   uninstallProgram: (id) => ipcRenderer.invoke('programs:uninstall', id),
+  // Что занимает место
+  scanSpace: () => ipcRenderer.invoke('space:scan'),
+  onSpaceProgress: (cb) => { ipcRenderer.removeAllListeners('space:progress'); ipcRenderer.on('space:progress', (e, t) => cb(t)); },
+  openSpaceFolder: (id) => ipcRenderer.invoke('space:openFolder', id),
+  showSpaceFile: (id) => ipcRenderer.invoke('space:showFile', id),
+  trashSpaceFile: (id) => ipcRenderer.invoke('space:trashFile', id),
   // Напоминания
   syncReminder: () => ipcRenderer.invoke('reminder:sync'),
   testReminder: () => ipcRenderer.invoke('reminder:test'),

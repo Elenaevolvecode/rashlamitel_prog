@@ -5,6 +5,7 @@ const autostart = require('./modules/autostart');
 const programs = require('./modules/programs');
 const { createStore } = require('./modules/store');
 const reminder = require('./modules/reminder');
+const space = require('./modules/space');
 
 const APP_ID = 'ru.rashlamitel.pc'; // совпадает с appId сборки — нужно Windows для уведомлений
 // Запуск из Планировщика: без окна, только проверить мусор и при необходимости напомнить
@@ -188,6 +189,28 @@ ipcMain.handle('cleaner:clean', async (e, opts = {}) => {
   } finally {
     cleaning = false;
   }
+});
+
+// --- Что занимает место ---
+let lastSpace = null;
+/** Найти папку/файл по номеру из последнего списка. Интерфейс путей не знает и не присылает. */
+function spaceItem(kind, id) {
+  if (!lastSpace || typeof id !== 'string') return null;
+  const m = id.match(kind === 'folder' ? /^f(\d+)$/ : /^x(\d+)$/);
+  if (!m) return null;
+  return (kind === 'folder' ? lastSpace.folders : lastSpace.files)[Number(m[1])] || null;
+}
+ipcMain.handle('space:scan', async () => {
+  try { lastSpace = await space.scanSpace({ onProgress: (title) => send('space:progress', title) }); }
+  catch (e) { console.error(e); return null; }
+  return space.forUi(lastSpace);
+});
+ipcMain.handle('space:openFolder', (e, id) => { const f = spaceItem('folder', id); if (f) shell.openPath(f.path); });
+ipcMain.handle('space:showFile', (e, id) => { const f = spaceItem('file', id); if (f) shell.showItemInFolder(f.path); });
+ipcMain.handle('space:trashFile', async (e, id) => {
+  const f = spaceItem('file', id);
+  if (!f || f.trashed) return false;
+  try { await shell.trashItem(f.path); f.trashed = true; return true; } catch { return false; }
 });
 
 // --- Автозагрузка ---

@@ -10,7 +10,7 @@ const state = {
   navStack: [], currentScreen: null,
   settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30 },
   scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
-  autostartData: null, programsData: null, progScreen: null,
+  autostartData: null, programsData: null, spaceData: null, spaceScanning: false, progScreen: null,
 };
 
 // ===== Утилиты =====
@@ -80,6 +80,7 @@ function switchTab(btn) {
   $(id).classList.remove('hidden');
   if (id === 'screen-autostart') { if (!state.autostartData) loadAutostart(); else renderAutostart(); }
   if (id === 'screen-programs') { if (!state.programsData) loadPrograms(); else renderProgramsMenu(); }
+  if (id === 'screen-space' && !state.spaceData && !state.spaceScanning) loadSpace();
 }
 
 // ===== Настройки =====
@@ -541,6 +542,105 @@ function doUninstall(id) {
   };
 }
 function closeDeleteDialog() { $('delete-dialog-overlay').classList.add('hidden'); }
+
+// ===== Что занимает место =====
+const MB = 1048576;
+function agoText(ms) {
+  const days = Math.floor((Date.now() - ms) / 86400000);
+  if (days < 1) return 'сегодня';
+  if (days < 31) return `${days} ${plural(days, 'день', 'дня', 'дней')} назад`;
+  const months = Math.floor(days / 30.4);
+  if (months < 12) return `${months} ${plural(months, 'месяц', 'месяца', 'месяцев')} назад`;
+  const years = Math.floor(days / 365);
+  return `${years} ${plural(years, 'год', 'года', 'лет')} назад`;
+}
+
+function demoSpace() {
+  const now = Date.now(), d = 86400000;
+  return {
+    disk: { drive: 'C:', total: 223 * GB, free: 30.4 * GB }, skipped: ['OneDrive'],
+    folders: [
+      { id: 'f0', title: 'Видео', icon: '🎬', size: 48.2 * GB }, { id: 'f1', title: 'Загрузки', icon: '📥', size: 21.7 * GB },
+      { id: 'f2', title: 'Изображения', icon: '🖼', size: 12.3 * GB }, { id: 'f3', title: 'Документы', icon: '📄', size: 3.1 * GB },
+      { id: 'f4', title: 'Рабочий стол', icon: '🖥', size: 1.4 * GB },
+    ],
+    files: [
+      { id: 'x0', name: 'Свадьба Оли и Пети.mp4', where: 'Видео › 2019', size: 9.8 * GB, mtime: now - 5 * 365 * d },
+      { id: 'x1', name: 'Windows10.iso', where: 'Загрузки', size: 5.6 * GB, mtime: now - 2 * 365 * d },
+      { id: 'x2', name: 'Резервная копия телефона.zip', where: 'Документы', size: 3.2 * GB, mtime: now - 400 * d },
+      { id: 'x3', name: 'Отпуск_море.mp4', where: 'Видео › Отпуск', size: 1.9 * GB, mtime: now - 70 * d },
+      { id: 'x4', name: 'office_setup.exe', where: 'Загрузки', size: 820 * MB, mtime: now - 12 * d },
+    ],
+  };
+}
+
+async function loadSpace(force) {
+  if (state.spaceScanning) return;
+  state.spaceScanning = true;
+  $('space-result').classList.add('hidden');
+  $('space-disk').classList.add('hidden');
+  $('space-status').textContent = 'Смотрю, что лежит в ваших папках… Это может занять пару минут.';
+  try {
+    if (isElectron) {
+      api.onSpaceProgress((title) => { $('space-status').textContent = `Смотрю: ${title}…`; });
+      state.spaceData = await api.scanSpace();
+    } else { await sleep(600); state.spaceData = demoSpace(); }
+  } finally { state.spaceScanning = false; }
+  if (!state.spaceData) { $('space-status').textContent = 'Не получилось посмотреть папки. Попробуйте ещё раз.'; return; }
+  renderSpace();
+}
+
+function renderSpace() {
+  const d = state.spaceData;
+  $('space-status').textContent = '';
+  if (d.disk) {
+    const used = d.disk.total - d.disk.free;
+    $('space-disk-text').innerHTML = `Диск ${escHtml((d.disk.drive || '').replace(/:$/, ''))}: свободно <b>${formatBytes(d.disk.free)}</b> из ${formatBytes(d.disk.total)}`;
+    const pct = d.disk.total ? Math.round(used / d.disk.total * 100) : 0;
+    const fill = $('space-disk-fill');
+    fill.style.width = pct + '%';
+    fill.style.background = pct > 90 ? 'linear-gradient(90deg,var(--accent-amber),#e05a15)' : '#1D8A40';
+    $('space-disk').classList.remove('hidden');
+  }
+  $('space-folders').innerHTML = d.folders.map((f) => `
+    <div class="space-item"><span class="space-item-icon">${escHtml(f.icon)}</span>
+      <div class="space-item-info"><span class="space-item-name">${escHtml(f.title)}</span></div>
+      <span class="space-item-size">${formatBytes(f.size)}</span>
+      <div class="space-actions"><button class="space-btn" onclick="openSpaceFolder('${escHtml(f.id)}')">Открыть</button></div>
+    </div>`).join('') || '<p class="space-note">Папки пустые.</p>';
+  $('space-files').innerHTML = d.files.map((f) => `
+    <div class="space-item${f.gone ? ' gone' : ''}" id="sf-${escHtml(f.id)}">
+      <div class="space-item-info"><span class="space-item-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
+        <span class="space-item-sub">${escHtml(f.where)} · изменён ${agoText(f.mtime)}</span></div>
+      <span class="space-item-size">${formatBytes(f.size)}</span>
+      <div class="space-actions">${f.gone ? '<span class="space-item-sub">в Корзине</span>' : `
+        <button class="space-btn" onclick="showSpaceFile('${escHtml(f.id)}')">Показать</button>
+        <button class="space-btn danger" onclick="trashSpaceFile('${escHtml(f.id)}')">В Корзину</button>`}</div>
+    </div>`).join('') || '<p class="space-note">Больших файлов (от 100 МБ) не нашёл.</p>';
+  const notes = ['В «самых больших» — файлы от 100 МБ.'];
+  if (d.skipped && d.skipped.length) notes.push('Папку OneDrive не считаю: там файлы часто хранятся только в облаке, и цифры получились бы неверными.');
+  $('space-note').textContent = notes.join(' ');
+  $('space-result').classList.remove('hidden');
+}
+
+function openSpaceFolder(id) { if (isElectron) api.openSpaceFolder(id); else showToast('В программе откроется папка'); }
+function showSpaceFile(id) { if (isElectron) api.showSpaceFile(id); else showToast('В программе откроется папка с этим файлом'); }
+
+async function trashSpaceFile(id) {
+  const f = (state.spaceData.files || []).find((x) => x.id === id);
+  if (!f || f.gone) return;
+  const ok = await confirmDialog({
+    title: `Удалить «${f.name}»?`,
+    text: `Файл (${formatBytes(f.size)}) перейдёт в Корзину. Если передумаете — его можно будет вернуть оттуда. Место освободится, когда очистите Корзину.`,
+    yes: 'Да, в Корзину', no: 'Отмена',
+  });
+  if (!ok) return;
+  const done = isElectron ? await api.trashSpaceFile(id) : true;
+  if (!done) { showToast('Не получилось — возможно, файл сейчас открыт в другой программе'); return; }
+  f.gone = true;
+  renderSpace();
+  showToast(`«${f.name}» в Корзине`);
+}
 
 // ===== Старт =====
 async function init() {

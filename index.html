@@ -60,6 +60,7 @@
       <button class="nav-tab active" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
       <button class="nav-tab" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
       <button class="nav-tab" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+      <button class="nav-tab" data-tab="screen-space" onclick="switchTab(this)"><span class="nav-icon">💽</span><span class="nav-label">Место</span></button>
     </nav>
   </div>
 
@@ -115,6 +116,7 @@
       <button class="nav-tab" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
       <button class="nav-tab active" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
       <button class="nav-tab" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+      <button class="nav-tab" data-tab="screen-space" onclick="switchTab(this)"><span class="nav-icon">💽</span><span class="nav-label">Место</span></button>
     </nav>
   </div>
 
@@ -140,6 +142,35 @@
       <button class="nav-tab" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
       <button class="nav-tab" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
       <button class="nav-tab active" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+      <button class="nav-tab" data-tab="screen-space" onclick="switchTab(this)"><span class="nav-icon">💽</span><span class="nav-label">Место</span></button>
+    </nav>
+  </div>
+
+  <!-- SPACE: что занимает место -->
+  <div class="screen hidden" id="screen-space">
+    <div class="app-header"><div class="header-left"><img src="assets/robot_confident.png" alt="" class="header-robot"><span class="header-title">Расхламитель</span></div><button class="header-settings" onclick="showScreen('screen-settings')">⚙</button></div>
+    <div class="programs-content">
+      <h2 class="section-title">Что занимает место</h2>
+      <p class="section-subtitle">Это ваши файлы — я их не трогаю и ничего не советую удалять. Посмотрите и решите сами. Удалённое попадёт в Корзину.</p>
+      <div class="space-disk hidden" id="space-disk">
+        <div class="space-disk-row"><span id="space-disk-text"></span></div>
+        <div class="trash-bar"><div class="trash-bar-fill" id="space-disk-fill"></div></div>
+      </div>
+      <p class="space-status" id="space-status"></p>
+      <div id="space-result" class="hidden">
+        <h3 class="preview-group-title">Ваши папки</h3>
+        <div class="space-list" id="space-folders"></div>
+        <h3 class="preview-group-title">Самые большие файлы</h3>
+        <div class="space-list" id="space-files"></div>
+        <p class="space-note" id="space-note"></p>
+        <button class="btn-outline btn-wide space-rescan" onclick="loadSpace(true)">Проверить ещё раз</button>
+      </div>
+    </div>
+    <nav class="navbar">
+      <button class="nav-tab" data-tab="screen-main" onclick="switchTab(this)"><span class="nav-icon">🏠</span><span class="nav-label">Главная</span></button>
+      <button class="nav-tab" data-tab="screen-autostart" onclick="switchTab(this)"><span class="nav-icon">⚡</span><span class="nav-label">При включении</span></button>
+      <button class="nav-tab" data-tab="screen-programs" onclick="switchTab(this)"><span class="nav-icon">📦</span><span class="nav-label">Программы</span></button>
+      <button class="nav-tab active" data-tab="screen-space" onclick="switchTab(this)"><span class="nav-icon">💽</span><span class="nav-label">Место</span></button>
     </nav>
   </div>
 
