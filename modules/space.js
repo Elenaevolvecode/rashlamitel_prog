@@ -2,7 +2,8 @@
  * «Что занимает место»: сколько весят папки пользователя и какие файлы самые большие.
  * Только показывает. Удалить файл можно лишь по явному нажатию — и только в Корзину.
  *
- * Не заходим в AppData (это программы, ими занимается очистка), в ссылки/junction-точки
+ * Не заходим в AppData (это программы, ими занимается очистка), в папки с точкой в начале
+ * (.android, .gradle… — тоже служебные папки программ), в ссылки/junction-точки
  * и в OneDrive: там файлы часто хранятся только в облаке, но размер показывают полный.
  */
 const fs = require('fs');
@@ -23,7 +24,9 @@ const SKIP = new Set(['appdata', 'application data', 'local settings', 'ntuser.d
 
 function skipTopDir(name) {
   const n = name.toLowerCase();
-  return SKIP.has(n) || n.startsWith('onedrive') || n.startsWith('ntuser');
+  // Папки с точкой в начале (.android, .gradle, .vscode…) создают программы — обычному человеку они не нужны,
+  // а трогать их не стоит. Не показываем вовсе (как и AppData); заодно поиск быстрее.
+  return SKIP.has(n) || n.startsWith('onedrive') || n.startsWith('ntuser') || n.startsWith('.');
 }
 
 /** Верхние папки в папке пользователя, которые будем считать. */
@@ -34,9 +37,7 @@ function topFolders(home) {
     .filter((e) => e.isDirectory() && !e.isSymbolicLink() && !skipTopDir(e.name))
     .map((e) => {
       const key = e.name.toLowerCase();
-      // Папки с точкой в начале (.android, .gradle, .vscode…) создают программы — показываем их одной строкой
-      const hidden = e.name.startsWith('.');
-      return { name: e.name, title: TITLES[key] || e.name, icon: ICONS[key] || '📁', path: path.join(home, e.name), hidden };
+      return { name: e.name, title: TITLES[key] || e.name, icon: ICONS[key] || '📁', path: path.join(home, e.name) };
     });
 }
 
@@ -63,21 +64,17 @@ async function diskInfo(home) {
 async function scanSpace({ home = os.homedir(), minFile = MIN_FILE, onProgress = () => {} } = {}) {
   const folders = [];
   const files = [];
-  const service = { title: 'Служебные папки программ', icon: '⚙️', path: null, size: 0, names: [], service: true };
   for (const f of topFolders(home)) {
     onProgress(f.title);
     let size = 0;
     await walk(f.path, (full, st) => {
       size += st.size;
       if (st.size >= minFile) {
-        pushTop(files, { name: path.basename(full), dir: path.dirname(full), folderTitle: f.title, path: full, size: st.size, mtime: st.mtimeMs, service: f.hidden });
+        pushTop(files, { name: path.basename(full), dir: path.dirname(full), folderTitle: f.title, path: full, size: st.size, mtime: st.mtimeMs });
       }
     });
-    if (size <= 0) continue;
-    if (f.hidden) { service.size += size; service.names.push(f.name); }
-    else folders.push({ title: f.title, icon: f.icon, path: f.path, size });
+    if (size > 0) folders.push({ title: f.title, icon: f.icon, path: f.path, size });
   }
-  if (service.size > 0) folders.push(service);
   // Файлы прямо в папке пользователя (не в подпапках)
   let rootSize = 0;
   try {
@@ -111,9 +108,8 @@ function forUi(r) {
   return {
     disk: r.disk,
     skipped: r.skipped,
-    folders: r.folders.map((f, i) => ({ id: 'f' + i, title: f.title, icon: f.icon, size: f.size,
-      canOpen: !!f.path, service: !!f.service, names: f.names || [] })),
-    files: r.files.map((f, i) => ({ id: 'x' + i, name: f.name, folderTitle: f.folderTitle, where: shortWhere(f), size: f.size, mtime: f.mtime, service: !!f.service })),
+    folders: r.folders.map((f, i) => ({ id: 'f' + i, title: f.title, icon: f.icon, size: f.size })),
+    files: r.files.map((f, i) => ({ id: 'x' + i, name: f.name, folderTitle: f.folderTitle, where: shortWhere(f), size: f.size, mtime: f.mtime })),
   };
 }
 

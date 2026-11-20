@@ -226,4 +226,3 @@ body{font-family:'Raleway',sans-serif;font-size:14px;font-weight:500;font-varian
 .space-item.gone{opacity:.45}
 .space-note{font-size:13px;color:var(--text-secondary);margin:10px 0 4px;line-height:1.4}
 .space-rescan{margin:8px 0 16px}
-.space-warn{color:var(--warning);font-weight:600;white-space:normal}
