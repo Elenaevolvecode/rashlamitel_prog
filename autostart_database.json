@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "version": "1.1",
+    "version": "1.2",
     "description": "База программ автозагрузки для Расхламитель ПК. Категории: green (нужна, не трогать), yellow (можно отключить), red (лучше отключить). Описания на бытовом языке.",
     "updated": "2026-11-20",
     "note": "Порядок важен: побеждает первая подходящая запись, поэтому конкретные (обновления, Яндекс Диск) стоят выше общих."
@@ -21,7 +21,8 @@
       "category": "yellow",
       "label": "Обновления",
       "description": "Проверяет обновления Google Chrome и других программ Google. Можно отключить — Chrome обновится сам, когда вы его откроете.",
-      "vendor": "Google"
+      "vendor": "Google",
+      "title": "Обновление Google Chrome"
     },
     {
       "id": "edge_update",
@@ -36,7 +37,8 @@
       "category": "yellow",
       "label": "Обновления",
       "description": "Проверяет обновления браузера Edge. Можно отключить — программа обновится сама, когда вы её откроете.",
-      "vendor": "Microsoft"
+      "vendor": "Microsoft",
+      "title": "Обновление Microsoft Edge"
     },
     {
       "id": "yandex_update",
@@ -52,7 +54,8 @@
       "category": "yellow",
       "label": "Обновления",
       "description": "Проверяет обновления Яндекс Браузера. Можно отключить — программа обновится сама, когда вы её откроете.",
-      "vendor": "Яндекс"
+      "vendor": "Яндекс",
+      "title": "Обновление Яндекс Браузера"
     },
     {
       "id": "opera_update",
@@ -68,7 +71,8 @@
       "category": "yellow",
       "label": "Обновления",
       "description": "Проверяет обновления браузера Opera. Можно отключить — программа обновится сама, когда вы её откроете.",
-      "vendor": "Opera"
+      "vendor": "Opera",
+      "title": "Обновление Opera"
     },
     {
       "id": "onedrive_update",
@@ -83,7 +87,70 @@
       "category": "yellow",
       "label": "Обновления",
       "description": "Проверяет обновления OneDrive. Можно отключить — программа обновится сама, когда вы её откроете.",
-      "vendor": "Microsoft"
+      "vendor": "Microsoft",
+      "title": "Обновление OneDrive"
+    },
+    {
+      "id": "amd_relive",
+      "title": "Запись экрана AMD",
+      "names": [
+        "StartDVR",
+        "AMD ReLive",
+        "Radeon ReLive"
+      ],
+      "process": [
+        "amddvr.exe"
+      ],
+      "category": "yellow",
+      "label": "Можно откл.",
+      "description": "Запись игр и экрана от AMD. Если вы не записываете видео с экрана — можно отключить.",
+      "vendor": "AMD"
+    },
+    {
+      "id": "waves_audio",
+      "title": "Улучшение звука Waves",
+      "names": [
+        "WavesSvc",
+        "Waves MaxxAudio",
+        "MaxxAudio"
+      ],
+      "process": [
+        "WavesSvc64.exe",
+        "WavesSysSvc64.exe"
+      ],
+      "category": "yellow",
+      "label": "Можно откл.",
+      "description": "Улучшает звук на некоторых ноутбуках. Без него звук будет работать, но может звучать немного иначе.",
+      "vendor": "Waves"
+    },
+    {
+      "id": "docker",
+      "title": "Docker Desktop",
+      "names": [
+        "Docker Desktop",
+        "Docker"
+      ],
+      "process": [
+        "Docker Desktop.exe"
+      ],
+      "category": "yellow",
+      "label": "Можно откл.",
+      "description": "Программа для разработчиков. Занимает много памяти — если пользуетесь редко, можно отключить и запускать вручную.",
+      "vendor": "Docker"
+    },
+    {
+      "id": "pdf24",
+      "title": "PDF24",
+      "names": [
+        "PDF24"
+      ],
+      "process": [
+        "pdf24.exe"
+      ],
+      "category": "yellow",
+      "label": "Можно откл.",
+      "description": "Помощник для работы с PDF. Можно отключить — программа откроется, когда понадобится.",
+      "vendor": "geek software"
     },
     {
       "id": "kaspersky",
@@ -160,7 +227,9 @@
       "names": [
         "AMD Radeon",
         "AMD Software",
-        "Radeon Settings"
+        "Radeon Settings",
+        "StartCN",
+        "AMDRSServ"
       ],
       "process": [
         "RadeonSoftware.exe",
@@ -169,7 +238,8 @@
       "category": "green",
       "label": "Драйвер видеокарты",
       "description": "Нужен для изображения на экране. Без него картинка может стать хуже",
-      "vendor": "AMD"
+      "vendor": "AMD",
+      "title": "AMD Radeon"
     },
     {
       "id": "intel_graphics",
@@ -192,7 +262,10 @@
       "names": [
         "Realtek Audio",
         "Realtek HD Audio",
-        "Realtek Audio Console"
+        "Realtek Audio Console",
+        "RtHDVBg",
+        "RAVBg64",
+        "RtHDVCpl"
       ],
       "process": [
         "RtkAudUService64.exe",
@@ -202,7 +275,8 @@
       "category": "green",
       "label": "Управление звуком",
       "description": "Нужен для работы колонок и наушников. Без него звук может пропасть",
-      "vendor": "Realtek"
+      "vendor": "Realtek",
+      "title": "Realtek Audio"
     },
     {
       "id": "synaptics_touchpad",

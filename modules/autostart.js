@@ -79,6 +79,22 @@ function displayName(raw) {
   return n || String(raw || '').trim();
 }
 
+/**
+ * Название задания Планировщика по-человечески: без кодов {GUID}, номеров версий
+ * и служебных хвостов. «CometUpdaterTaskSystem149.0.7827.1095{…}» → «Обновление Comet».
+ */
+function taskDisplayName(raw) {
+  let n = String(raw || '').replace(/\{[0-9a-f-]{8,}\}/gi, '').replace(/\d+(\.\d+){1,}/g, '')
+    .replace(/\s\d{6,}\b/g, '').replace(/\bscheduled\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+  n = n.replace(/(Task)?(System|Machine(Core|UA)?|User)?$/i, '').replace(/Task$/i, '').trim();
+  const upd = n.match(/^(.+?)[ _-]?(Auto)?Updater?$/i);
+  if (upd && upd[1].length >= 2) return `Обновление ${upd[1].replace(/[_-]+/g, ' ').trim()}`;
+  return displayName(n || raw);
+}
+
+/** Похоже ли задание на «обновлялку» — для пояснения, если программы нет в базе. */
+function isUpdaterTask(name) { return /update/i.test(String(name || '')); }
+
 /** Флаг в StartupApproved: нечётный первый байт = отключено (02/06 — вкл, 03/07 — откл). */
 function isDisabledFlag(b0) {
   return typeof b0 === 'number' && (b0 & 1) === 1;
@@ -160,7 +176,7 @@ function matchWithDatabase(entry, database) {
   return null;
 }
 
-const iconMap = { kaspersky: '🛡', drweb: '🛡', windows_defender: '🛡', nvidia_display: '🖥', amd_radeon: '🖥', intel_graphics: '🖥', realtek_audio: '🔊', synaptics_touchpad: '🖱', yandex_browser: '🌐', chrome: '🌐', edge: '🌐', opera_gx_gaming: '🌐', telegram: '💬', whatsapp: '💬', viber: '💬', discord: '🎧', skype: '📞', zoom: '📹', teams: '💼', steam: '🎮', epic_games: '🎮', onedrive: '☁', yandex_disk: '☁', google_drive: '☁', dropbox: '☁', spotify: '🎵', itunes: '🎵' };
+const iconMap = { google_update: '🔄', edge_update: '🔄', yandex_update: '🔄', opera_update: '🔄', onedrive_update: '🔄', amd_relive: '🎥', waves_audio: '🔊', docker: '🐳', pdf24: '📄', kaspersky: '🛡', drweb: '🛡', windows_defender: '🛡', nvidia_display: '🖥', amd_radeon: '🖥', intel_graphics: '🖥', realtek_audio: '🔊', synaptics_touchpad: '🖱', yandex_browser: '🌐', chrome: '🌐', edge: '🌐', opera_gx_gaming: '🌐', telegram: '💬', whatsapp: '💬', viber: '💬', discord: '🎧', skype: '📞', zoom: '📹', teams: '💼', steam: '🎮', epic_games: '🎮', onedrive: '☁', yandex_disk: '☁', google_drive: '☁', dropbox: '☁', spotify: '🎵', itunes: '🎵' };
 const LABELS = { green: 'Нужна', yellow: 'Можно откл.', red: 'Лучше откл.' };
 
 /**
@@ -186,7 +202,7 @@ function buildList(raw, database, username) {
     const category = db ? db.category : 'yellow';
     list.push({
       id,
-      name: db ? db.names[0] : displayName(e.name),
+      name: db ? (db.title || db.names[0]) : displayName(e.name),
       category,
       label: LABELS[category],
       description: db ? db.description : 'Запускается при включении компьютера',
@@ -206,12 +222,14 @@ function buildList(raw, database, username) {
     const category = db ? db.category : 'yellow';
     list.push({
       id,
-      name: db ? db.names[0] : displayName(t.name),
+      name: db ? (db.title || db.names[0]) : taskDisplayName(t.name),
       category,
       label: LABELS[category],
-      description: db ? db.description : 'Запускается при включении компьютера',
+      description: db ? db.description : isUpdaterTask(t.name)
+        ? 'Проверяет обновления программы. Можно отключить — программа обновится сама, когда вы её откроете.'
+        : 'Запускается при включении компьютера',
       vendor: db ? db.vendor : '',
-      icon: (db && iconMap[db.id]) || (category === 'green' ? '🛡' : category === 'red' ? '⚠' : '❓'),
+      icon: (db && iconMap[db.id]) || (isUpdaterTask(t.name) && !db ? '🔄' : category === 'green' ? '🛡' : category === 'red' ? '⚠' : '❓'),
       enabled: t.state !== 'Disabled',
       needsAdmin: false, // заранее не знаем: попробуем без разрешения, не выйдет — попросим
       _key: { kind: 'task', path: t.path || '\\', name: t.name },
@@ -294,4 +312,4 @@ async function setEnabled(id, enabled) {
   return { ok: r.done === 1, cancelled: r.cancelled };
 }
 
-module.exports = { getAutostart, readRaw, setEnabled, setMany, toOps, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };
+module.exports = { taskDisplayName, getAutostart, readRaw, setEnabled, setMany, toOps, displayName, resolveStartupFile, approvedKeyFor, isForCurrentUser, isDisabledFlag, buildList };

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { displayName, resolveStartupFile, approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
+const { taskDisplayName, displayName, resolveStartupFile, approvedKeyFor, isDisabledFlag, isForCurrentUser, buildList } = require('../modules/autostart');
 const { classify, parseUninstall, buildList: buildPrograms } = require('../modules/programs');
 
 test('автозагрузка: правильный раздел StartupApproved', () => {
@@ -115,7 +115,7 @@ test('автозагрузка: задания Планировщика попа
   };
   const list = buildList(raw, db, 'elena');
   const edge = list.find((x) => x.id.includes('microsoftedgeupdate'));
-  assert.strictEqual(edge.name, 'MicrosoftEdgeUpdate', 'обновлялка Edge, а не сам браузер');
+  assert.strictEqual(edge.name, 'Обновление Microsoft Edge', 'обновлялка Edge, а не сам браузер');
   assert.ok(edge.description.includes('обновления'));
   assert.strictEqual(edge.enabled, true);
   const helper = list.find((x) => x.id === 'task:\\vendor\\somevendorhelper');
@@ -161,4 +161,17 @@ test('Windows: задание с запуском при входе находи
   } finally {
     await ps.run('Unregister-ScheduledTask -TaskName $A.name -Confirm:$false -ErrorAction SilentlyContinue', { name: NAME });
   }
+});
+
+test('автозагрузка: названия заданий по-человечески', () => {
+  assert.strictEqual(taskDisplayName('CometUpdaterTaskSystem149.0.7827.1095{D5A05A68-9A1C-4C32-AEFC-274B7FB5F83B}'), 'Обновление Comet');
+  assert.strictEqual(taskDisplayName('BraveSoftwareUpdateTaskMachineCore{ABC12345-0000}'), 'Обновление BraveSoftware');
+  assert.strictEqual(taskDisplayName('StartCN'), 'StartCN');
+  assert.strictEqual(taskDisplayName('Opera GX scheduled Autoupdate 1712345678'), 'Обновление Opera GX');
+});
+
+test('автозагрузка: незнакомая обновлялка получает понятное пояснение', () => {
+  const list = buildList({ entries: [], approved: {}, tasks: [{ name: 'CometUpdaterTaskSystem149.0{D5A05A68-9A1C-4C32}', path: '\\', state: 'Ready', exe: 'C:\\x\\updater.exe' }] }, { programs: [] }, 'elena');
+  assert.strictEqual(list[0].name, 'Обновление Comet');
+  assert.ok(list[0].description.startsWith('Проверяет обновления'));
 });

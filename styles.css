@@ -229,3 +229,5 @@ body{font-family:'Raleway',sans-serif;font-size:14px;font-weight:500;font-varian
 /* Окно программы: без скругления и подложки (они только для просмотра index.html в браузере) */
 .in-app body{background:#fff}
 .in-app #app{border-radius:0;box-shadow:none;width:100%}
+/* Подписи в нижнем меню могут переноситься на две строки */
+.nav-label{line-height:1.15;text-align:center;padding:0 4px}
