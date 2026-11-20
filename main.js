@@ -205,7 +205,7 @@ ipcMain.handle('space:scan', async () => {
   catch (e) { console.error(e); return null; }
   return space.forUi(lastSpace);
 });
-ipcMain.handle('space:openFolder', (e, id) => { const f = spaceItem('folder', id); if (f) shell.openPath(f.path); });
+ipcMain.handle('space:openFolder', (e, id) => { const f = spaceItem('folder', id); if (f && f.path) shell.openPath(f.path); });
 ipcMain.handle('space:showFile', (e, id) => { const f = spaceItem('file', id); if (f) shell.showItemInFolder(f.path); });
 ipcMain.handle('space:trashFile', async (e, id) => {
   const f = spaceItem('file', id);

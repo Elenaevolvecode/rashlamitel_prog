@@ -23,6 +23,8 @@ function fakeHome() {
   w('AppData/Local/Temp/big.tmp', 900 * MB); // программы — не считаем
   w('OneDrive/облако.mp4', 800 * MB); // может быть только в облаке — не считаем
   w('big_in_root.zip', 150 * MB);
+  w('.android/avd/ram.img', 200 * MB); // служебная папка программы
+  w('.gradle/caches/x.bin', 5 * MB);
   return home;
 }
 
@@ -35,7 +37,7 @@ test('папки: размеры и порядок, без AppData и OneDrive',
   assert.strictEqual(byTitle['Документы'], 1 * MB);
   assert.strictEqual(byTitle['Файлы в папке пользователя'], 150 * MB);
   // Смотрим только часть пути внутри тестовой папки: в Windows сама временная папка лежит в AppData\Local\Temp
-  assert.ok(!r.folders.some((f) => /appdata|onedrive/i.test(path.relative(home, f.path))));
+  assert.ok(!r.folders.some((f) => f.path && /appdata|onedrive/i.test(path.relative(home, f.path))));
   assert.strictEqual(r.folders[0].title, 'Загрузки', 'самые тяжёлые — первыми');
   assert.deepStrictEqual(r.skipped, ['OneDrive']);
 });
@@ -43,7 +45,8 @@ test('папки: размеры и порядок, без AppData и OneDrive',
 test('самые большие файлы: от 100 МБ, по убыванию', async () => {
   const home = fakeHome();
   const r = await space.scanSpace({ home });
-  assert.deepStrictEqual(r.files.map((f) => f.name), ['windows.iso', 'море.mp4', 'big_in_root.zip']);
+  assert.deepStrictEqual(r.files.map((f) => f.name), ['windows.iso', 'море.mp4', 'ram.img', 'big_in_root.zip']);
+  assert.strictEqual(r.files.find((f) => f.name === 'ram.img').service, true);
 });
 
 test('для интерфейса — без полных путей, с понятным «где лежит»', async () => {
@@ -64,4 +67,15 @@ test('в списке не больше 30 файлов', async () => {
   const r = await space.scanSpace({ home });
   assert.strictEqual(r.files.length, space.TOP_FILES);
   assert.strictEqual(r.files[0].name, 'v39.mp4');
+});
+
+test('папки с точкой — одной строкой «Служебные папки программ», без «Открыть»', async () => {
+  const home = fakeHome();
+  const ui = space.forUi(await space.scanSpace({ home }));
+  const svc = ui.folders.find((f) => f.service);
+  assert.strictEqual(svc.title, 'Служебные папки программ');
+  assert.strictEqual(svc.size, 205 * MB);
+  assert.deepStrictEqual(svc.names.sort(), ['.android', '.gradle']);
+  assert.strictEqual(svc.canOpen, false);
+  assert.ok(!ui.folders.some((f) => f.title.startsWith('.')), 'папки с точкой отдельно не показываем');
 });

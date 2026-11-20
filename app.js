@@ -562,7 +562,8 @@ function demoSpace() {
     folders: [
       { id: 'f0', title: 'Видео', icon: '🎬', size: 48.2 * GB }, { id: 'f1', title: 'Загрузки', icon: '📥', size: 21.7 * GB },
       { id: 'f2', title: 'Изображения', icon: '🖼', size: 12.3 * GB }, { id: 'f3', title: 'Документы', icon: '📄', size: 3.1 * GB },
-      { id: 'f4', title: 'Рабочий стол', icon: '🖥', size: 1.4 * GB },
+      { id: 'f4', title: 'Рабочий стол', icon: '💻', size: 1.4 * GB },
+      { id: 'f5', title: 'Служебные папки программ', icon: '⚙️', size: 11.2 * GB, canOpen: false, service: true, names: ['.android', '.gradle', '.vscode'] },
     ],
     files: [
       { id: 'x0', name: 'Свадьба Оли и Пети.mp4', where: 'Видео › 2019', size: 9.8 * GB, mtime: now - 5 * 365 * d },
@@ -570,6 +571,7 @@ function demoSpace() {
       { id: 'x2', name: 'Резервная копия телефона.zip', where: 'Документы', size: 3.2 * GB, mtime: now - 400 * d },
       { id: 'x3', name: 'Отпуск_море.mp4', where: 'Видео › Отпуск', size: 1.9 * GB, mtime: now - 70 * d },
       { id: 'x4', name: 'office_setup.exe', where: 'Загрузки', size: 820 * MB, mtime: now - 12 * d },
+      { id: 'x5', name: 'ram.img', where: '.android › avd › Pixel_6.avd', size: 2 * GB, mtime: now - 200 * d, service: true },
     ],
   };
 }
@@ -604,20 +606,23 @@ function renderSpace() {
   }
   $('space-folders').innerHTML = d.folders.map((f) => `
     <div class="space-item"><span class="space-item-icon">${escHtml(f.icon)}</span>
-      <div class="space-item-info"><span class="space-item-name">${escHtml(f.title)}</span></div>
+      <div class="space-item-info"><span class="space-item-name">${escHtml(f.title)}</span>
+        ${f.service ? `<span class="space-item-sub" title="${escHtml(f.names.join(', '))}">${escHtml(f.names.join(', '))}</span>` : ''}</div>
       <span class="space-item-size">${formatBytes(f.size)}</span>
-      <div class="space-actions"><button class="space-btn" onclick="openSpaceFolder('${escHtml(f.id)}')">Открыть</button></div>
+      ${f.canOpen === false ? '' : `<div class="space-actions"><button class="space-btn" onclick="openSpaceFolder('${escHtml(f.id)}')">Открыть</button></div>`}
     </div>`).join('') || '<p class="space-note">Папки пустые.</p>';
   $('space-files').innerHTML = d.files.map((f) => `
     <div class="space-item${f.gone ? ' gone' : ''}" id="sf-${escHtml(f.id)}">
       <div class="space-item-info"><span class="space-item-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
-        <span class="space-item-sub">${escHtml(f.where)} · изменён ${agoText(f.mtime)}</span></div>
+        <span class="space-item-sub">${escHtml(f.where)} · изменён ${agoText(f.mtime)}</span>
+        ${f.service ? '<span class="space-item-sub space-warn">Служебный файл программы — удаляйте, только если точно знаете, что это</span>' : ''}</div>
       <span class="space-item-size">${formatBytes(f.size)}</span>
       <div class="space-actions">${f.gone ? '<span class="space-item-sub">в Корзине</span>' : `
         <button class="space-btn" onclick="showSpaceFile('${escHtml(f.id)}')">Показать</button>
         <button class="space-btn danger" onclick="trashSpaceFile('${escHtml(f.id)}')">В Корзину</button>`}</div>
     </div>`).join('') || '<p class="space-note">Больших файлов (от 100 МБ) не нашёл.</p>';
   const notes = ['В «самых больших» — файлы от 100 МБ.'];
+  if (d.folders.some((f) => f.service)) notes.push('«Служебные папки программ» — папки с точкой в начале названия: их создают программы для разработки, игры и т. п. Трогать их стоит, только если вы точно знаете, что это.');
   if (d.skipped && d.skipped.length) notes.push('Папку OneDrive не считаю: там файлы часто хранятся только в облаке, и цифры получились бы неверными.');
   $('space-note').textContent = notes.join(' ');
   $('space-result').classList.remove('hidden');
