@@ -13,6 +13,7 @@ const { walk } = require('./fsutil');
 
 const MIN_FILE = 100 * 1024 * 1024; // в «самые большие» попадают файлы от 100 МБ
 const TOP_FILES = 30;
+const MIN_FOLDER = 10 * 1024 * 1024; // почти пустые папки (Контакты, Ссылки…) не показываем — только удлиняют список
 
 const TITLES = {
   desktop: 'Рабочий стол', documents: 'Документы', downloads: 'Загрузки', pictures: 'Изображения',
@@ -73,7 +74,7 @@ async function scanSpace({ home = os.homedir(), minFile = MIN_FILE, onProgress =
         pushTop(files, { name: path.basename(full), dir: path.dirname(full), folderTitle: f.title, path: full, size: st.size, mtime: st.mtimeMs });
       }
     });
-    if (size > 0) folders.push({ title: f.title, icon: f.icon, path: f.path, size });
+    if (size >= MIN_FOLDER) folders.push({ title: f.title, icon: f.icon, path: f.path, size });
   }
   // Файлы прямо в папке пользователя (не в подпапках)
   let rootSize = 0;
@@ -89,7 +90,7 @@ async function scanSpace({ home = os.homedir(), minFile = MIN_FILE, onProgress =
       } catch {}
     }
   } catch {}
-  if (rootSize > 0) folders.push({ title: 'Файлы в папке пользователя', icon: '📁', path: home, size: rootSize });
+  if (rootSize >= MIN_FOLDER) folders.push({ title: 'Файлы в папке пользователя', icon: '📁', path: home, size: rootSize });
 
   folders.sort((a, b) => b.size - a.size);
   const skipped = topFoldersSkipped(home);
