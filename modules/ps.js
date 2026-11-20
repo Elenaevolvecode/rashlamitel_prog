@@ -19,6 +19,7 @@ function buildScript(script, args = {}) {
   const argsB64 = Buffer.from(JSON.stringify(args), 'utf8').toString('base64');
   return [
     '$ErrorActionPreference = "Stop"',
+    '$ProgressPreference = "SilentlyContinue"', // без служебных сообщений «Preparing modules…» в выводе
     '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
     `$A = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${argsB64}')) | ConvertFrom-Json`,
     script,

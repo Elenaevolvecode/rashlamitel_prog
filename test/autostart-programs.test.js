@@ -134,9 +134,12 @@ test('Windows: задание с запуском при входе находи
   const autostart = require('../modules/autostart');
   const NAME = 'Rashlamitel Test Logon Task';
   const reg = await ps.run(
+    // Тем же способом, что и задание-напоминание (проверен на этой Windows): для текущего пользователя, без прав администратора
+    "$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name; " +
     "$a = New-ScheduledTaskAction -Execute 'notepad.exe'; " +
-    "$t = New-ScheduledTaskTrigger -AtLogOn -User ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name); " +
-    "Register-ScheduledTask -TaskName $A.name -Action $a -Trigger $t -Force | Out-Null; " +
+    "$t = New-ScheduledTaskTrigger -AtLogOn -User $user; " +
+    "$p = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited; " +
+    "Register-ScheduledTask -TaskName $A.name -Action $a -Trigger $t -Principal $p -Force | Out-Null; " +
     "$x = Get-ScheduledTask -TaskName $A.name; $x.TaskPath + '|' + $x.State + '|' + (@($x.Triggers)[0].CimClass.CimClassName)", { name: NAME });
   try {
     const list = await autostart.getAutostart();
