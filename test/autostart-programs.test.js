@@ -175,3 +175,20 @@ test('автозагрузка: незнакомая обновлялка пол
   assert.strictEqual(list[0].name, 'Обновление Comet');
   assert.ok(list[0].description.startsWith('Проверяет обновления'));
 });
+
+test('автозагрузка: две записи одной программы — одна строка, переключаются вместе', () => {
+  const raw = {
+    entries: [
+      { name: 'Skype', command: 'C:\\s\\Skype.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\elena' },
+      { name: 'Skype for Desktop', command: 'C:\\s2\\Skype.exe', location: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'Public' },
+    ],
+    approved: { 'HKCU\\Run': { Skype: 3 } },
+  };
+  const db = { programs: [{ id: 'skype', names: ['Skype'], process: ['Skype.exe'], category: 'yellow', description: 'Звонки', vendor: '' }] };
+  const list = buildList(raw, db, 'elena');
+  assert.strictEqual(list.length, 1, 'одна строка');
+  assert.strictEqual(list[0].enabled, true, 'включена, если включена хоть одна запись');
+  assert.strictEqual(list[0].needsAdmin, true);
+  const ops = require('../modules/autostart').toOps(list, false);
+  assert.strictEqual(ops.reg.length, 2, 'выключаем обе записи');
+});

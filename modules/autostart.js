@@ -235,8 +235,29 @@ function buildList(raw, database, username) {
       _key: { kind: 'task', path: t.path || '\\', name: t.name },
     });
   }
-  list.sort((a, b) => ({ green: 0, yellow: 1, red: 2 })[a.category] - ({ green: 0, yellow: 1, red: 2 })[b.category]);
-  return list;
+  const merged = mergeSameName(list);
+  merged.sort((a, b) => ({ green: 0, yellow: 1, red: 2 })[a.category] - ({ green: 0, yellow: 1, red: 2 })[b.category]);
+  return merged;
+}
+
+/**
+ * У одной программы бывает несколько записей автозагрузки (у Realtek — звук и кнопка настройки,
+ * у Skype — две копии). Человеку разница не нужна: показываем одной строкой, переключаем все разом.
+ * Строка «включена», если включена хотя бы одна из записей.
+ */
+function mergeSameName(list) {
+  const groups = new Map();
+  for (const it of list) {
+    const k = it.name.toLowerCase();
+    const g = groups.get(k);
+    if (!g) groups.set(k, { ...it, _members: [it] });
+    else {
+      g._members.push(it);
+      g.enabled = g.enabled || it.enabled;
+      g.needsAdmin = g.needsAdmin || it.needsAdmin;
+    }
+  }
+  return [...groups.values()];
 }
 
 let lastList = [];
@@ -253,13 +274,13 @@ async function getAutostart() {
   if (process.platform !== 'win32') return [];
   const { raw } = await readRaw();
   lastList = buildList(raw, loadDatabase());
-  return lastList.map(({ _key, ...rest }) => rest);
+  return lastList.map(({ _key, _members, ...rest }) => rest);
 }
 
 /** Разложить пункты на «запись в реестре» и «задание Планировщика» в формате скриптов. */
 function toOps(items, enabled) {
   const reg = [], tasks = [];
-  for (const it of items) {
+  for (const it of items.flatMap((g) => g._members || [g])) {
     if (it._key.kind === 'task') tasks.push({ id: it.id, path: it._key.path, name: it._key.name, enable: enabled });
     else reg.push({ id: it.id, hklm: it._key.hive === 'HKLM', path: approvedRegPath(it._key.hive, it._key.sub), name: it._key.valueName, flag: enabled ? 2 : 3 });
   }
@@ -302,8 +323,10 @@ async function setMany(ids, enabled) {
     ok = await verify(all, enabled);
   }
 
-  for (const it of items) if (ok.has(it.id)) it.enabled = enabled;
-  return { done: ok.size, total: items.length, cancelled, okIds: [...ok] };
+  // Строка считается переключённой, если переключились все её записи
+  const okIds = items.filter((g) => (g._members || [g]).every((m) => ok.has(m.id))).map((g) => g.id);
+  for (const g of items) if (okIds.includes(g.id)) { g.enabled = enabled; for (const m of g._members || []) m.enabled = enabled; }
+  return { done: okIds.length, total: items.length, cancelled, okIds };
 }
 
 /** Включить/выключить один пункт. Возвращает { ok, cancelled }. */
