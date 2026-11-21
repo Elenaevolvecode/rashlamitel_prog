@@ -26,18 +26,18 @@ test('автозагрузка: флаги 02/06 — включено, 03/07 —
 });
 
 test('автозагрузка: чужие пользователи скрыты, статус из реестра', () => {
-  assert.ok(isForCurrentUser({ user: 'PC\\elena' }, 'elena'));
-  assert.ok(isForCurrentUser({ user: 'Public' }, 'elena'));
-  assert.ok(!isForCurrentUser({ user: 'PC\\guest' }, 'elena'));
+  assert.ok(isForCurrentUser({ user: 'PC\\user' }, 'user'));
+  assert.ok(isForCurrentUser({ user: 'Public' }, 'user'));
+  assert.ok(!isForCurrentUser({ user: 'PC\\guest' }, 'user'));
   const raw = {
     entries: [
-      { name: 'uTorrent', command: 'C:\\utorrent.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\elena' },
+      { name: 'uTorrent', command: 'C:\\utorrent.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\user' },
       { name: 'Other', command: 'x.exe', location: 'HKU\\S-2\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\guest' },
     ],
     approved: { 'HKCU\\Run': { uTorrent: 3 } },
   };
   const db = { programs: [{ id: 'utorrent', names: ['uTorrent'], process: ['utorrent.exe'], category: 'red', description: 'Реклама', vendor: '' }] };
-  const list = buildList(raw, db, 'elena');
+  const list = buildList(raw, db, 'user');
   assert.strictEqual(list.length, 1);
   assert.strictEqual(list[0].enabled, false);
   assert.strictEqual(list[0].category, 'red');
@@ -94,11 +94,11 @@ test('автозагрузка: имя ярлыка берётся из наст
 
 test('автозагрузка: buildList использует список файлов папки «Автозагрузка»', () => {
   const raw = {
-    entries: { name: 'Voice.ai - Voice Changer.lnk', command: 'C:\\v\\voice.exe', location: 'Startup', user: 'PC\\elena' },
+    entries: { name: 'Voice.ai - Voice Changer.lnk', command: 'C:\\v\\voice.exe', location: 'Startup', user: 'PC\\user' },
     approved: { 'HKCU\\StartupFolder': { 'Voice.ai - Voice Changer.lnk.lnk': 3 } },
     startup: { user: ['Voice.ai - Voice Changer.lnk.lnk'], common: [] },
   };
-  const list = buildList(raw, { programs: [] }, 'elena');
+  const list = buildList(raw, { programs: [] }, 'user');
   assert.strictEqual(list.length, 1);
   assert.strictEqual(list[0].enabled, false, 'видит, что в Диспетчере задач он отключён');
   assert.strictEqual(list[0].name, 'Voice.ai - Voice Changer');
@@ -113,7 +113,7 @@ test('автозагрузка: задания Планировщика попа
       { name: 'SomeVendorHelper', path: '\\Vendor\\', state: 'Disabled', exe: 'C:\\v\\helper.exe' },
     ],
   };
-  const list = buildList(raw, db, 'elena');
+  const list = buildList(raw, db, 'user');
   const edge = list.find((x) => x.id.includes('microsoftedgeupdate'));
   assert.strictEqual(edge.name, 'Обновление Microsoft Edge', 'обновлялка Edge, а не сам браузер');
   assert.ok(edge.description.includes('обновления'));
@@ -125,8 +125,8 @@ test('автозагрузка: задания Планировщика попа
 
 test('автозагрузка: Яндекс Диск не путается с Яндекс Браузером', () => {
   const db = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'autostart_database.json'), 'utf8'));
-  const raw = { entries: [{ name: 'YandexDisk2', command: 'C:\\Users\\x\\AppData\\Roaming\\Yandex\\YandexDisk2\\YandexDisk2.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\elena' }], approved: {} };
-  assert.strictEqual(buildList(raw, db, 'elena')[0].name, 'Яндекс Диск');
+  const raw = { entries: [{ name: 'YandexDisk2', command: 'C:\\Users\\x\\AppData\\Roaming\\Yandex\\YandexDisk2\\YandexDisk2.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\user' }], approved: {} };
+  assert.strictEqual(buildList(raw, db, 'user')[0].name, 'Яндекс Диск');
 });
 
 test('Windows: задание с запуском при входе находится, отключается и включается', { skip: process.platform !== 'win32' && 'только на Windows' }, async () => {
@@ -171,7 +171,7 @@ test('автозагрузка: названия заданий по-челов�
 });
 
 test('автозагрузка: незнакомая обновлялка получает понятное пояснение', () => {
-  const list = buildList({ entries: [], approved: {}, tasks: [{ name: 'CometUpdaterTaskSystem149.0{D5A05A68-9A1C-4C32}', path: '\\', state: 'Ready', exe: 'C:\\x\\updater.exe' }] }, { programs: [] }, 'elena');
+  const list = buildList({ entries: [], approved: {}, tasks: [{ name: 'CometUpdaterTaskSystem149.0{D5A05A68-9A1C-4C32}', path: '\\', state: 'Ready', exe: 'C:\\x\\updater.exe' }] }, { programs: [] }, 'user');
   assert.strictEqual(list[0].name, 'Обновление Comet');
   assert.ok(list[0].description.startsWith('Проверяет обновления'));
 });
@@ -179,13 +179,13 @@ test('автозагрузка: незнакомая обновлялка пол
 test('автозагрузка: две записи одной программы — одна строка, переключаются вместе', () => {
   const raw = {
     entries: [
-      { name: 'Skype', command: 'C:\\s\\Skype.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\elena' },
+      { name: 'Skype', command: 'C:\\s\\Skype.exe', location: 'HKU\\S-1\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'PC\\user' },
       { name: 'Skype for Desktop', command: 'C:\\s2\\Skype.exe', location: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', user: 'Public' },
     ],
     approved: { 'HKCU\\Run': { Skype: 3 } },
   };
   const db = { programs: [{ id: 'skype', names: ['Skype'], process: ['Skype.exe'], category: 'yellow', description: 'Звонки', vendor: '' }] };
-  const list = buildList(raw, db, 'elena');
+  const list = buildList(raw, db, 'user');
   assert.strictEqual(list.length, 1, 'одна строка');
   assert.strictEqual(list[0].enabled, true, 'включена, если включена хоть одна запись');
   assert.strictEqual(list[0].needsAdmin, true);
