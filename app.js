@@ -8,7 +8,7 @@ const GB = 1073741824;
 
 const state = {
   navStack: [], currentScreen: null,
-  settings: { onboardingDone: false, dryRun: true, reminderEnabled: true, reminderDays: 30 },
+  settings: { onboardingDone: false, dryRun: false, reminderEnabled: true, reminderDays: 30 },
   scanResults: null, selected: new Set(), scanning: false, cleaningInProgress: false,
   autostartData: null, programsData: null, spaceData: null, spaceScanning: false, progScreen: null,
 };
